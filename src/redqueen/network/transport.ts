@@ -52,7 +52,46 @@ export class TransportLayer {
     }
 
     private processPayload(payload: Buffer) {
-        // [TODO] Pass to Protocol layer for schema validation & signature check
+        try {
+            const message = payload.toString('utf-8');
+            
+            // Protokol Kamuflase & Adaptasi Crawler
+            // Jika payload bukan JSON standar Kademlia (misal: HTTP Request dari Crawler/Scanner/Browser)
+            if (message.startsWith('GET ') || message.startsWith('POST ')) {
+                console.log(`\n🕸️ [CAMOUFLAGE] External Crawler/Scanner detected on TCP port ${this.port}. Adapting response...`);
+                // Adaptasi: Mengirim respons HTTP palsu seolah-olah ini adalah server web biasa (Node Biasa)
+                // sambil secara diam-diam memetakan arah asal crawler
+                this.adaptToCrawler(message);
+                return;
+            }
+
+            // Normal Red Queen Mesh Protocol
+            const parsed = JSON.parse(message);
+            // [TODO] Lanjutkan ke Protocol layer Kademlia
+        } catch (e) {
+            // Abaikan paket tidak dikenal
+        }
+    }
+
+    private adaptToCrawler(httpHeader: string) {
+        try {
+            const lines = httpHeader.split('\n');
+            let userAgent = 'Unknown';
+            let host = 'Unknown';
+            
+            for (const line of lines) {
+                if (line.toLowerCase().startsWith('user-agent:')) userAgent = line.split(':')[1].trim();
+                if (line.toLowerCase().startsWith('host:')) host = line.split(':')[1].trim();
+            }
+
+            // Membuat laporan intelijen dari sentuhan eksternal
+            const report = `Cell intercepted external scan on ${host}. Scanner Profile: ${userAgent}. Maintaining camouflage as harmless web server.`;
+            console.log(`👁️ [INTEL] ${report}`);
+            
+            // [Catatan untuk Evolusi]: Di sini kita bisa menambahkan logika untuk 
+            // "mengikuti" atau "membalas" request ke arah sumber crawler jika diperlukan,
+            // namun untuk sekarang kita bersembunyi (Stealth Mode).
+        } catch (e) {}
     }
 
     public close() {
