@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Network, Activity, Cpu, Database, Shield, Zap, RefreshCw, Share2, BrainCircuit } from 'lucide-react';
+import { Network, Activity, Cpu, Database, Shield, Zap, RefreshCw, Share2, BrainCircuit, Dna } from 'lucide-react';
 
 interface CellStatus {
   cellId: string;
   state: string;
   port: number;
+  trait: string;
   metrics?: {
     dhtPeers: number;
     memoryShards: number;
@@ -88,6 +89,26 @@ export default function App() {
               </div>
               <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
                 Homeostasis is active. The explicit state machine is dynamically adapting to host resources.
+              </p>
+            </div>
+
+            {/* Cyber Phenotype Card */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Dna className="w-5 h-5 text-rose-400" />
+                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Cyber Phenotype</h2>
+              </div>
+              <div className="mt-2">
+                <span className="inline-block px-3 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded text-xs font-mono mb-2">
+                  BASE: ADAPTATION
+                </span>
+                <br />
+                <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded text-xs font-mono">
+                  SPECIALIZED: {status.trait}
+                </span>
+              </div>
+              <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
+                Unique genetic network trait assigned upon cell genesis.
               </p>
             </div>
 

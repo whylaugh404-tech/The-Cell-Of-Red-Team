@@ -9,6 +9,7 @@ import { TransportLayer } from '../network/transport';
 import { KademliaRouting, DHTNode } from '../network/dht';
 import { HolographicMemory } from '../memory/manager';
 import { CognitiveMesh } from '../cognition/mesh';
+import { CyberTrait, CellGenome } from '../replication/genome';
 
 export class CellSupervisor {
     public identity: CellIdentity;
@@ -18,6 +19,7 @@ export class CellSupervisor {
     public dht: KademliaRouting;
     public memory: HolographicMemory;
     public cognition: CognitiveMesh;
+    public genome: CellGenome;
 
     constructor() {
         this.lifecycle = new LifecycleManager();
@@ -29,6 +31,22 @@ export class CellSupervisor {
         this.dht = new KademliaRouting(this.identity.cellId);
         this.memory = new HolographicMemory();
         this.cognition = new CognitiveMesh(this.identity.cellId);
+
+        // Assign Specialized Cyber Trait
+        const traits = Object.values(CyberTrait);
+        const randomTrait = traits[Math.floor(Math.random() * traits.length)];
+        
+        this.genome = {
+            generation: 0,
+            parentId: null,
+            specializedTrait: randomTrait,
+            traits: {
+                metabolismRate: 1.0,
+                maxConnections: randomTrait === CyberTrait.ROUTER ? 100 : 20,
+                memoryAllocation: randomTrait === CyberTrait.ARCHIVAL ? 2048 : 256
+            },
+            mutationRecord: ['GENESIS_BOOT']
+        };
     }
 
     public async boot() {

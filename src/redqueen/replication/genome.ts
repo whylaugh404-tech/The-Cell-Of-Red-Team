@@ -4,9 +4,18 @@
  */
 import * as crypto from 'crypto';
 
+export enum CyberTrait {
+    REGENERATIVE = 'REGENERATIVE', // Restores lost memory shards
+    IMMUNE = 'IMMUNE',             // Strict firewall, drops bad packets
+    ARCHIVAL = 'ARCHIVAL',         // Deep storage for memory parity
+    ROUTER = 'ROUTER',             // High DHT bandwidth routing
+    EPHEMERAL = 'EPHEMERAL'        // Fast, RAM-only, short lifespan
+}
+
 export interface CellGenome {
     generation: number;
     parentId: string | null;
+    specializedTrait: CyberTrait;
     traits: {
         metabolismRate: number;
         maxConnections: number;

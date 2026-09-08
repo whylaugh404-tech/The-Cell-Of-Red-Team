@@ -20,6 +20,7 @@ async function startServer() {
       cellId: localNode.identity.cellId,
       state: localNode.lifecycle.getState(),
       port: localNode.transport.getPort(),
+      trait: localNode.genome.specializedTrait,
       metrics: {
         dhtPeers: localNode.dht.getRoutingTableSize(),
         memoryShards: localNode.memory.getLocalShardCount(),
