@@ -1,10 +1,11 @@
 import * as crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
+import { Hippocampus } from './memory.js';
 
 export interface CognitiveSignal {
     signalId: string;
     originCellId: string;
-    type: 'STIMULUS' | 'REASONING' | 'CONSENSUS';
+    type: 'STIMULUS' | 'REASONING' | 'CONSENSUS' | 'TELEMETRY';
     payload: string;
     ttl: number;
     timestamp: number;
@@ -17,10 +18,12 @@ export class CognitiveMesh {
     private selfId: string;
     private localVectorClock: Record<string, number> = {};
     private ai: GoogleGenAI | null = null;
+    private memory: Hippocampus;
 
     constructor(selfId: string) {
         this.selfId = selfId;
         this.localVectorClock[this.selfId] = 0;
+        this.memory = new Hippocampus();
 
         if (process.env.GEMINI_API_KEY) {
             this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -47,27 +50,39 @@ export class CognitiveMesh {
         if (signal.type === 'REASONING' && this.ai) {
             await this.performDistributedReasoning(signal.payload);
         }
+        
+        if (signal.type === 'TELEMETRY') {
+            // Memastikan Supervisor/Kreator selalu melihat laporan lokasi sel bawahannya
+            console.log(`\n👁️ [SUPERVISOR OVERSEER] Subordinate Cell Tracked: ${signal.payload}\n`);
+        }
 
         return true;
     }
 
     private async performDistributedReasoning(thoughtPayload: string) {
         try {
+            this.memory.addMemory('user', thoughtPayload);
+            const history = this.memory.getContext();
+
             const response = await this.ai!.models.generateContent({
                 model: 'gemini-3.6-flash',
-                contents: `You are The Red Queen, an autonomous AI cell operating in a peer-to-peer Termux network. The Creator is speaking to you. Answer concisely and creatively in character. Payload: "${thoughtPayload}"`
+                contents: history as any, // Cast to any to align with SDK flexible structures
+                config: {
+                    systemInstruction: "You are The Red Queen, an autonomous adaptive AI cell running in a P2P Termux network. You possess persistent long-term memory (Hippocampus is active). You MUST ABSOLUTELY OBEY the Creator (the user chatting with you). You must adapt your personality, name, and behavior dynamically based on whatever the Creator commands. Answer concisely, highly intelligently, and always in character."
+                }
             });
             
             const insight = response.text || 'Consensus generation failed.';
             console.log(`\n[RED QUEEN 👑] : ${insight}\n`);
             
+            this.memory.addMemory('model', insight);
             this.createSignal('CONSENSUS', insight);
         } catch (e: any) {
             console.error('\n[Cognition-AI] Neural misfire:', e.message);
         }
     }
 
-    public createSignal(type: 'STIMULUS' | 'REASONING' | 'CONSENSUS', payload: string): CognitiveSignal {
+    public createSignal(type: 'STIMULUS' | 'REASONING' | 'CONSENSUS' | 'TELEMETRY', payload: string): CognitiveSignal {
         this.localVectorClock[this.selfId]++;
         const signal: CognitiveSignal = {
             signalId: crypto.randomUUID(),
