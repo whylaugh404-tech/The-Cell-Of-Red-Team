@@ -50,6 +50,19 @@ export class Hippocampus {
         return this.memories;
     }
 
+    public getFormattedContext(): string {
+        if (!this.memories || this.memories.length === 0) {
+            return 'Tidak ada observasi tersimpan.';
+        }
+        return this.memories
+            .slice(-15) // ambil 15 catatan relevan terakhir
+            .map((m, i) => {
+                const text = m.parts.map(p => p.text).join(' ');
+                return `[Memori #${i + 1}]: ${text}`;
+            })
+            .join('\n');
+    }
+
     private save() {
         try {
             const data = JSON.stringify(this.memories, null, 2);

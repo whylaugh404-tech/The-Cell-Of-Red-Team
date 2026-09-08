@@ -76,4 +76,12 @@ export class KademliaRouting {
     public getRoutingTableSize(): number {
         return this.buckets.flat().length;
     }
+
+    public getPeerCount(): number {
+        return this.getRoutingTableSize();
+    }
+
+    public getAllPeers(): DHTNode[] {
+        return this.buckets.flat();
+    }
 }

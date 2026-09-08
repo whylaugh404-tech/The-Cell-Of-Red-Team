@@ -4,6 +4,7 @@
  * Modifies cell behavior based on health.
  */
 import * as os from 'os';
+import * as v8 from 'v8';
 import { LifecycleManager, CellState } from './lifecycle';
 
 export class MetabolicCore {
@@ -28,21 +29,26 @@ export class MetabolicCore {
             return;
         }
 
-        const memUsage = process.memoryUsage().heapUsed / process.memoryUsage().heapTotal;
-        const loadAvg = os.loadavg()[0]; // 1 minute load average
+        // Hitung persentase beban nyata terhadap batas maksimal heap V8
+        const heapStats = v8.getHeapStatistics();
+        const memRatio = heapStats.used_heap_size / heapStats.heap_size_limit;
+        
+        // Beban CPU dinormalisasi terhadap jumlah inti core fisik
+        const cpus = Math.max(1, os.cpus().length);
+        const normalizedLoad = os.loadavg()[0] / cpus;
 
-        if (memUsage > 0.9 || loadAvg > 4.0) {
+        if (memRatio > 0.9 || normalizedLoad > 3.0) {
             if (this.lifecycle.getState() !== CellState.HIBERNATING) {
                 this.lifecycle.transition(CellState.HIBERNATING, 'Critical resource shortage');
             }
-        } else if (memUsage > 0.7 || loadAvg > 2.0) {
+        } else if (memRatio > 0.8 || normalizedLoad > 1.8) {
             if (this.lifecycle.getState() !== CellState.STRESSED) {
                 this.lifecycle.transition(CellState.STRESSED, 'High resource usage');
             }
         } else {
             if (this.lifecycle.getState() === CellState.STRESSED || this.lifecycle.getState() === CellState.HIBERNATING) {
                 this.lifecycle.transition(CellState.RECOVERING, 'Resources normalized');
-                setTimeout(() => this.lifecycle.transition(CellState.ACTIVE, 'Recovery complete'), 2000);
+                setTimeout(() => this.lifecycle.transition(CellState.ACTIVE, 'Recovery complete'), 1000);
             }
         }
     }

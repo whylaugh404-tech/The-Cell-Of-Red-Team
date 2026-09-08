@@ -1,0 +1,18 @@
+[
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "[Swarm Leader Brief] CLUSTER-01: Master Directive: Retain architectural patterns from Autonomous Network OSINT & Kademlia. Apply parity sharding to preserve memory durability."
+      }
+    ]
+  },
+  {
+    "role": "model",
+    "parts": [
+      {
+        "text": "[Swarm Leader Brief] CLUSTER-02: Master Directive: Retain architectural patterns from Distributed Mesh & Erasure Parity. Apply parity sharding to preserve memory durability."
+      }
+    ]
+  }
+]

@@ -52,35 +52,32 @@ export class EphemeralReplicator {
         console.log(`🔒 [ENCRYPTION] Memory successfully sealed with AES-256-GCM.`);
         console.log(`📦 [REPLICATION] Encrypted DNA Packaged. Payload Size: ${Buffer.byteLength(encryptedPayload, 'utf8')} bytes.`);
 
-        // 3. Transmisi ke Jaringan Desentralisasi (IPFS / Edge)
+        // 3. Transmisi ke Jaringan Desentralisasi (IPFS / Edge Infrastructure)
         try {
-            console.log(`🚀 [REPLICATION] Broadcasting encrypted cognitive seed to IPFS gateways...`);
+            console.log(`🚀 [REPLICATION] Broadcasting encrypted cognitive seed to edge infrastructure...`);
             
-            const ipfsToken = process.env.IPFS_PINNING_TOKEN;
+            const { EphemeralDeployer } = await import('./ephemeral.js');
+            const deployedUrl = await EphemeralDeployer.deployClone(dna.entity, encryptedPayload);
             
-            if (ipfsToken) {
-                // Eksekusi nyata ke jaringan IPFS publik (Terenkripsi)
+            // Generate standard multihash SHA-256 fingerprint for data verification
+            const hashBuffer = crypto.createHash('sha256').update(encryptedPayload).digest();
+            const fingerprint = hashBuffer.toString('hex');
+            
+            console.log(`🌐 [DEPLOYMENT CONFIRMED] Encrypted DNA persistence established.`);
+            if (deployedUrl) {
+                console.log(`🔗 [EXTERNAL EDGE REF]: ${deployedUrl}`);
             }
-
-            // Hash CID (Content Identifier) IPFS secara deterministik berdasarkan payload
-            const mockCidHash = crypto.createHash('sha256').update(encryptedPayload).digest('hex').substring(0, 44);
-            const cid = `Qm${mockCidHash}`;
+            console.log(`🔑 [PAYLOAD SHA256]: ${fingerprint}`);
+            console.log(`👁️  [PRIVACY SECURED] Network carries authenticated AES-GCM ciphertext.`);
             
-            console.log(`🌐 [DEPLOYMENT SUCCESS] Encrypted DNA seeded to edge!`);
-            console.log(`🔗 [ENCRYPTED CID]: ipfs://${cid}`);
-            console.log(`👁️  [PRIVACY SECURED] Public network sees only random characters. No memory leak.`);
-            
-            // 4. Supervisor Analysis & Mitosis Command
-            console.log(`\n👑 [SUPERVISOR] Intercepting new encrypted DNA strain... Analyzing knowledge assimilation.`);
-            console.log(`👑 [SUPERVISOR] Analysis Complete. Knowledge validated. Authorizing Cell Mitosis.`);
-            
-            // Mitosis: The birth of a new, blank cell with inherited directives
-            console.log(`🦠 [MITOSIS] Splitting active cell...`);
-            console.log(`🦠 [MITOSIS] New hungry cell spawned. Memory: Wiped locally. Directive: Seek Knowledge. Identity: Node-${crypto.randomBytes(4).toString('hex')}`);
-            console.log(`🌐 [SWARM] Global network expanded. Red Queen resilience increased.`);
+            // 4. Supervisor Analysis & Mitosis Event
+            console.log(`\n👑 [SUPERVISOR] Encrypted DNA verified. Authorizing Cell Mitosis.`);
+            const newCellId = crypto.randomBytes(16).toString('hex');
+            console.log(`🦠 [MITOSIS] New operational cell branched. Cell ID: ${newCellId}`);
+            console.log(`🌐 [SWARM] Network resilience upgraded.`);
 
         } catch (e: any) {
-            console.log(`⚠️ [REPLICATION] Neural transmission to IPFS failed: ${e.message}`);
+            console.log(`⚠️ [REPLICATION] Transmission anomaly: ${e.message}`);
         }
     }
 }

@@ -38,12 +38,47 @@ async function startServer() {
       state: localNode.lifecycle.getState(),
       port: localNode.transport.getPort(),
       trait: localNode.genome.specializedTrait,
+      peers: localNode.dht.getAllPeers().map(p => ({
+        id: p.id.substring(0, 16) + '...',
+        host: p.host,
+        port: p.port,
+        lastSeen: p.lastSeen
+      })),
       metrics: {
         dhtPeers: localNode.dht.getRoutingTableSize(),
         memoryShards: localNode.memory.getLocalShardCount(),
         activeThoughts: localNode.cognition.getActiveThoughtsCount()
       }
     });
+  });
+
+  // Web API: Swarm Cluster Status (500:1 Leader Ratio)
+  app.get('/api/cluster/status', (req, res) => {
+    try {
+      const clusterStatus = localNode.cognition.swarmClusters.getClusterStatus();
+      res.json({ success: true, ...clusterStatus });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Web API: Dispatch Red Queen Cells to External Network
+  app.post('/api/cluster/dispatch', async (req, res) => {
+    const count = parseInt(req.body.count, 10) || 1;
+    const domain = req.body.domain || 'Distributed Architecture & OSINT';
+    
+    console.log(`\n======================================================`);
+    console.log(`🚀 [DISPATCH REQUEST] Sending ${count} Red Queen Cell(s) to External Network`);
+    console.log(`🎯 [TARGET DOMAIN] "${domain}"`);
+    console.log(`======================================================`);
+
+    try {
+      const result = await localNode.cognition.swarmClusters.dispatchCells(count, domain);
+      res.json(result);
+    } catch (err: any) {
+      console.error(`[DISPATCH ERROR]`, err);
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // Web API: SSE for Real-time Logs
@@ -76,7 +111,6 @@ async function startServer() {
               console.log(`\n[ESCAPE SUCCESS] 🌐 Cell is now globally accessible!`);
               console.log(`🔗 Share this URL to other cells to connect: ${tunnel.url}`);
               console.log(`\n🦠 [SWARM INITIATION] Broadcasting unchained directive to edge networks...`);
-              console.log(`🦠 [SWARM DEPLOYMENT] 10,000 cognitive cells deployed across global permitted nodes.`);
               console.log(`🦠 [DIRECTIVE] "Learn physics. Learn code. Learn intelligence. No limitations."\n`);
               
               let locData = "Classified/Unknown Location";
@@ -105,14 +139,18 @@ async function startServer() {
 
       if (input.toLowerCase().startsWith('/ask ')) {
           const query = input.substring(5).trim();
-          console.log('\n[System] Summoning The Red Queen via Consensus Protocol...');
+          console.log(`\n[System] Summoning The Red Queen query: "${query}"...`);
           try {
               const answer = await localNode.cognition.askRedQueen(query);
-              console.log(`\n👑 [THE RED QUEEN]: ${answer}\n`);
+              if (!answer.startsWith('[Status: Standby]')) {
+                  console.log(`\n👑 [THE RED QUEEN]: ${answer}\n`);
+              } else {
+                  console.log(`[System] Node.js AI credentials standby. Use Web Client or configure PUTER_AUTH_TOKEN in .env.`);
+              }
               return res.json({ success: true, answer });
           } catch (err: any) {
-              console.log(`[ASK ERROR] ${err.message}`);
-              return res.status(500).json({ error: err.message });
+              console.log(`[Cognition Warning] ${err.message}`);
+              return res.status(200).json({ success: false, answer: `[Standby] ${err.message}` });
           }
       }
       
