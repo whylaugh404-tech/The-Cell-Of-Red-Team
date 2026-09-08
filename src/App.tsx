@@ -6,10 +6,14 @@ interface CellStatus {
   state: string;
   port: number;
   trait: string;
+  epigenetics?: string[];
   metrics?: {
     dhtPeers: number;
     memoryShards: number;
     activeThoughts: number;
+    atp: number;
+    maxAtp: number;
+    vectorClock: number;
   };
 }
 
@@ -40,7 +44,7 @@ export default function App() {
         <header className="border-b border-neutral-800 pb-6">
           <h1 className="text-3xl font-light text-neutral-100 flex items-center gap-3">
             <Network className="w-8 h-8 text-rose-500" />
-            Red Queen Cell <span className="text-neutral-500 text-sm ml-2 font-mono">v0.2.0-mesh</span>
+            Red Queen Cell <span className="text-neutral-500 text-sm ml-2 font-mono">v0.3.0-atp</span>
           </h1>
           <p className="text-neutral-500 mt-2 text-sm">
             Autonomous Distributed Digital Organism - Global Node Interface
@@ -98,17 +102,45 @@ export default function App() {
                 <Dna className="w-5 h-5 text-rose-400" />
                 <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Cyber Phenotype</h2>
               </div>
-              <div className="mt-2">
-                <span className="inline-block px-3 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded text-xs font-mono mb-2">
+              <div className="mt-2 space-y-2">
+                <span className="inline-block px-3 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded text-xs font-mono">
                   BASE: ADAPTATION
                 </span>
                 <br />
                 <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded text-xs font-mono">
                   SPECIALIZED: {status.trait}
                 </span>
+                <br />
+                {status.epigenetics && status.epigenetics.length > 0 && (
+                  <span className="inline-block px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded text-xs font-mono">
+                    EPIGENETICS: {status.epigenetics.join(', ')}
+                  </span>
+                )}
               </div>
               <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-                Unique genetic network trait assigned upon cell genesis.
+                Unique genetic network trait. Adapts via epigenetic markers upon environmental stress.
+              </p>
+            </div>
+
+            {/* ATP Metabolism */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Activity className="w-5 h-5 text-amber-400" />
+                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Metabolism (ATP)</h2>
+              </div>
+              <div className="text-3xl font-light text-neutral-100 mt-2">
+                {status.metrics?.atp || 0} <span className="text-sm text-neutral-500">/ {status.metrics?.maxAtp || 10000}</span>
+              </div>
+              <div className="mt-4 h-1.5 w-full bg-neutral-950 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-500 ${
+                    (status.metrics?.atp || 0) < 4000 ? 'bg-red-500' : 'bg-amber-500'
+                  }`}
+                  style={{ width: `${((status.metrics?.atp || 0) / (status.metrics?.maxAtp || 10000)) * 100}%` }}
+                ></div>
+              </div>
+              <p className="mt-3 text-xs text-neutral-500">
+                Cellular energy pool. Drained by intensive CPU/network cognitive loads.
               </p>
             </div>
 
@@ -136,7 +168,11 @@ export default function App() {
                 <span className="text-4xl font-light text-neutral-100">{status.metrics?.activeThoughts || 0}</span>
                 <span className="text-sm text-neutral-500">active signal(s) in local queue</span>
               </div>
-              <div className="mt-6 space-y-2">
+              <div className="mt-4 flex items-center justify-between border-t border-neutral-800 pt-4">
+                <span className="text-xs text-neutral-500 font-mono">VECTOR_CLOCK_SYNC</span>
+                <span className="text-sm text-fuchsia-300 font-mono">T: {status.metrics?.vectorClock || 0}</span>
+              </div>
+              <div className="mt-4 space-y-2">
                 <div className="h-1.5 w-full bg-neutral-950 rounded-full overflow-hidden">
                   <div className="h-full bg-fuchsia-500/50 w-full animate-pulse"></div>
                 </div>
