@@ -97,6 +97,12 @@ async function startServer() {
           }
       }
       
+      if (input.toLowerCase().startsWith('/puter_result ')) {
+          const result = input.substring(14).trim();
+          console.log(`\n👑 [THE RED QUEEN]:\n${result}\n`);
+          return res.json({ success: true });
+      }
+
       if (input.toLowerCase().startsWith('/ask ')) {
           const query = input.substring(5).trim();
           console.log('\n[System] Summoning The Red Queen via Consensus Protocol...');
