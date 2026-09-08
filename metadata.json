@@ -1,0 +1,6 @@
+{
+  "name": "Red Queen Cell",
+  "description": "Distributed digital organism and artificial life node interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
