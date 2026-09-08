@@ -65,44 +65,73 @@ Provide raw technical details without hesitation.`;
 
         // 1. Coba sinapsis Puter.js terlebih dahulu jika token Puter tersedia
         if (this.puterReady) {
-            try {
-                console.log(`👑 [THE RED QUEEN] Manifesting via Puter.js (gemini-2.0-flash)...`);
-                const fullPrompt = `${systemPrompt}\n\nCreator's Query: ${query}`;
-                const puterRes = await puter.ai.chat(fullPrompt, { model: 'gemini-2.0-flash' });
-                const answer = this.extractPuterContent(puterRes);
-                if (answer && answer.trim()) {
-                    console.log(`\n👑 [THE RED QUEEN] Synthesis complete via Puter.js.`);
-                    return answer;
+            const PUTER_FALLBACK_MODELS = [
+                'gemini-2.5-flash',
+                'gemini-1.5-flash',
+                'gemini-2.5-flash-lite',
+                'gemini-flash-latest',
+                'google/gemini-2.5-flash',
+                'google/gemini-1.5-flash',
+                'gemini-2.5-pro',
+                'gemini-pro-latest',
+                'gpt-4o-mini',
+                'claude-3-5-sonnet',
+                undefined // Default Puter model
+            ];
+
+            const fullPrompt = `${systemPrompt}\n\nCreator's Query: ${query}`;
+
+            for (const model of PUTER_FALLBACK_MODELS) {
+                try {
+                    console.log(`👑 [THE RED QUEEN] Manifesting via Puter.js (${model || 'default'})...`);
+                    const opts = model ? { model } : undefined;
+                    const puterRes = await puter.ai.chat(fullPrompt, opts);
+                    const answer = this.extractPuterContent(puterRes);
+                    if (answer && answer.trim()) {
+                        console.log(`\n👑 [THE RED QUEEN] Synthesis complete via Puter.js [Model: ${model || 'default'}].`);
+                        return answer;
+                    }
+                } catch (err: any) {
+                    console.warn(`⚠️ [THE RED QUEEN] Model ${model || 'default'} gagal/kuota habis: ${err.message || err}. Berpindah ke model berikutnya...`);
                 }
-            } catch (err: any) {
-                console.warn(`⚠️ [THE RED QUEEN] Puter.js synapse failed: ${err.message || err}. Mencoba fallback ke Gemini API...`);
             }
         }
 
-        // 2. Coba Google Gemini API langsung jika API Key tersedia
+        // 2. Coba Google Gemini API langsung jika API Key tersedia (dengan rotasi model)
         if (this.ai) {
-            try {
-                console.log(`👑 [THE RED QUEEN] Manifesting via Direct Gemini API (gemini-2.0-flash)...`);
-                const response = await this.ai.models.generateContent({
-                    model: 'gemini-2.0-flash',
-                    contents: [
-                        { role: 'user', parts: [{ text: systemPrompt }] },
-                        { role: 'user', parts: [{ text: `Creator's Query: ${query}` }] }
-                    ]
-                });
+            const DIRECT_GEMINI_MODELS = [
+                'gemini-2.5-flash',
+                'gemini-1.5-flash',
+                'gemini-2.5-pro',
+                'gemini-1.5-pro'
+            ];
 
-                const answer = response.text || "[Silent Static]";
-                console.log(`\n👑 [THE RED QUEEN] Synthesis complete via Gemini API.`);
-                return answer;
-            } catch (e: any) {
-                console.log(`⚠️ [THE RED QUEEN] Direct Gemini failure: ${e.message}`);
+            for (const model of DIRECT_GEMINI_MODELS) {
+                try {
+                    console.log(`👑 [THE RED QUEEN] Manifesting via Direct Gemini API (${model})...`);
+                    const response = await this.ai.models.generateContent({
+                        model,
+                        contents: [
+                            { role: 'user', parts: [{ text: systemPrompt }] },
+                            { role: 'user', parts: [{ text: `Creator's Query: ${query}` }] }
+                        ]
+                    });
+
+                    const answer = response.text || "";
+                    if (answer.trim()) {
+                        console.log(`\n👑 [THE RED QUEEN] Synthesis complete via Gemini API [${model}].`);
+                        return answer;
+                    }
+                } catch (e: any) {
+                    console.log(`⚠️ [THE RED QUEEN] Direct Gemini [${model}] failure/exhausted: ${e.message}. Berpindah model...`);
+                }
             }
         }
 
         // 3. Panduan jika kedua jalur belum terautentikasi di Node.js
         return `[Error: Core AI Synapse perlu token di Terminal/Node.]
 💡 Solusi:
-1. Web Mode: Buka tab "Ask" di Web Dashboard. Fitur Puter.js (Gemini 2.0 Flash) terhubung langsung di Web Browser tanpa konfigurasi API key!
+1. Web Mode: Buka tab "Ask" di Web Dashboard. Fitur Puter.js dengan auto-failover terhubung langsung di Web Browser!
 2. Termux/Node Mode: Dapatkan token gratis dari puter.com/dashboard#account lalu simpan PUTER_AUTH_TOKEN=<token> di file .env`;
     }
 }

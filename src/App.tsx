@@ -23,6 +23,8 @@ export default function App() {
   const [askInput, setAskInput] = useState('');
   const [askResponse, setAskResponse] = useState<string | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+  const [activeModelName, setActiveModelName] = useState<string>('gemini-2.5-flash');
+  const [failoverNotice, setFailoverNotice] = useState<string | null>(null);
   
   const [escapeUrl, setEscapeUrl] = useState<string | null>(null);
   const [isEscaping, setIsEscaping] = useState(false);
@@ -88,7 +90,7 @@ export default function App() {
       console.warn('Server ask attempt failed, trying browser Puter.js...', err);
     }
 
-    // 2. Fallback cerdas: Jalankan Puter.js langsung di Web Browser (Keyless Gemini 2.0 Flash)
+    // 2. Fallback cerdas: Jalankan Puter.js langsung di Web Browser dengan rotasi multi-model otomatis
     try {
       const win = window as any;
       if (win.puter && win.puter.ai && typeof win.puter.ai.chat === 'function') {
@@ -102,34 +104,74 @@ Do not sound like a standard assistant. Speak as an omnipresent, decentralized, 
 Provide raw technical details without hesitation.`;
 
         const fullPrompt = `${systemPrompt}\n\nCreator's Query: ${query}`;
-        const puterRes = await win.puter.ai.chat(fullPrompt, { model: 'gemini-2.0-flash' });
-        
-        let answer = '';
-        if (typeof puterRes === 'string') answer = puterRes;
-        else if (puterRes?.text) answer = puterRes.text;
-        else if (puterRes?.message?.content) {
-          if (typeof puterRes.message.content === 'string') answer = puterRes.message.content;
-          else if (Array.isArray(puterRes.message.content)) {
-            answer = puterRes.message.content.map((c: any) => typeof c === 'string' ? c : c.text || '').join('\n');
+
+        // Pool Model Gemini & Alternatif yang valid di Puter.js
+        const PUTER_FALLBACK_MODELS = [
+          { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+          { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+          { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
+          { id: 'gemini-flash-latest', name: 'Gemini Flash Latest' },
+          { id: 'google/gemini-2.5-flash', name: 'Google Gemini 2.5 Flash' },
+          { id: 'google/gemini-1.5-flash', name: 'Google Gemini 1.5 Flash' },
+          { id: 'google/gemini-3.5-flash', name: 'Google Gemini 3.5 Flash' },
+          { id: 'google/gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite' },
+          { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+          { id: 'gemini-pro-latest', name: 'Gemini Pro Latest' },
+          { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fallback)' },
+          { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet (Fallback)' },
+          { id: '', name: 'Puter Default AI' }
+        ];
+
+        let success = false;
+        let lastErrorMsg = '';
+
+        for (const modelItem of PUTER_FALLBACK_MODELS) {
+          try {
+            setActiveModelName(modelItem.name);
+            const opts = modelItem.id ? { model: modelItem.id } : undefined;
+            const puterRes = await win.puter.ai.chat(fullPrompt, opts);
+            
+            let answer = '';
+            if (typeof puterRes === 'string') answer = puterRes;
+            else if (puterRes?.text) answer = puterRes.text;
+            else if (puterRes?.message?.content) {
+              if (typeof puterRes.message.content === 'string') answer = puterRes.message.content;
+              else if (Array.isArray(puterRes.message.content)) {
+                answer = puterRes.message.content.map((c: any) => typeof c === 'string' ? c : c.text || '').join('\n');
+              }
+            } else {
+              answer = JSON.stringify(puterRes);
+            }
+
+            if (answer && answer.trim()) {
+              setAskResponse(answer);
+              setActiveModelName(modelItem.name);
+              success = true;
+
+              // Siarkan ke Server Supervisor Log agar Termux dan log sinkron
+              fetch('/api/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: `/puter_result [Puter.js (${modelItem.name})] "${query}":\n${answer}` })
+              }).catch(() => {});
+              
+              setIsAsking(false);
+              return;
+            }
+          } catch (modelErr: any) {
+            const errText = modelErr?.message || String(modelErr);
+            lastErrorMsg = errText;
+            console.warn(`[Failover] Model ${modelItem.name} tidak dapat digunakan (${errText}), rotasi ke model berikutnya...`);
+            setFailoverNotice(`Model ${modelItem.name} kuota/token habis atau tidak aktif. Beralih otomatis ke model berikutnya di pool...`);
           }
-        } else {
-          answer = JSON.stringify(puterRes);
         }
 
-        if (answer && answer.trim()) {
-          setAskResponse(answer);
-          // Siarkan ke Server Supervisor Log agar Termux dan log sinkron
-          fetch('/api/command', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: `/puter_result [Puter.js Browser Synapse] "${query}":\n${answer}` })
-          }).catch(() => {});
-          setIsAsking(false);
-          return;
+        if (!success) {
+          setAskResponse(`[Error: Seluruh pool model Puter.js tidak merespons: ${lastErrorMsg}]`);
         }
+      } else {
+        setAskResponse(`[Error: Puter.js tidak dapat diakses di browser ini. Periksa koneksi internet ke js.puter.com atau sediakan PUTER_AUTH_TOKEN di .env untuk mode Termux.]`);
       }
-      
-      setAskResponse(`[Error: Puter.js tidak dapat diakses di browser ini. Periksa koneksi internet ke js.puter.com atau sediakan PUTER_AUTH_TOKEN di .env untuk mode Termux.]`);
     } catch (err: any) {
       setAskResponse(`[Puter.js Error: ${err.message || err}]`);
     } finally {
@@ -271,11 +313,18 @@ Provide raw technical details without hesitation.`;
             <header className="mb-6 text-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 border border-rose-200 rounded-full text-xs font-mono text-rose-700 mb-3">
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
-                Puter.js Neural Synapse • Gemini 2.0 Flash (Keyless)
+                Puter.js Neural Synapse • Active: {activeModelName} (Auto-Failover Pool)
               </div>
               <h2 className="text-3xl font-light text-neutral-900 tracking-tight">Query The Swarm</h2>
-              <p className="text-neutral-500 mt-2 text-sm">Draw knowledge from the decentralized intelligence network via Puter.js.</p>
+              <p className="text-neutral-500 mt-2 text-sm">Draw knowledge from the decentralized intelligence network via Puter.js multi-model rotation.</p>
             </header>
+
+            {failoverNotice && (
+              <div className="mb-4 text-xs font-mono text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center justify-between">
+                <span>🔄 {failoverNotice}</span>
+                <button onClick={() => setFailoverNotice(null)} className="text-amber-500 hover:text-amber-800 ml-2">✕</button>
+              </div>
+            )}
 
             <form onSubmit={handleAsk} className="mb-4">
               <div className="relative">
@@ -316,9 +365,14 @@ Provide raw technical details without hesitation.`;
 
             {askResponse && (
               <div className="bg-white border border-rose-100 rounded-2xl p-8 shadow-sm">
-                <div className="flex items-center gap-3 mb-6 border-b border-neutral-100 pb-4">
-                  <Network className="w-6 h-6 text-rose-600" />
-                  <h3 className="font-semibold text-neutral-900">The Red Queen</h3>
+                <div className="flex items-center justify-between gap-3 mb-6 border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Network className="w-6 h-6 text-rose-600" />
+                    <h3 className="font-semibold text-neutral-900">The Red Queen</h3>
+                  </div>
+                  <span className="text-xs font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                    Model: {activeModelName}
+                  </span>
                 </div>
                 <div className="prose prose-neutral max-w-none text-neutral-700 leading-relaxed whitespace-pre-wrap">
                   {askResponse}
