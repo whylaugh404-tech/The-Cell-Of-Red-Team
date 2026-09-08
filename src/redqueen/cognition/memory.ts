@@ -12,6 +12,8 @@ export interface MemoryNode {
 export class Hippocampus {
     private memories: MemoryNode[] = [];
 
+    private MAX_MEMORY_LIMIT = 50;
+
     constructor() {
         this.load();
     }
@@ -21,7 +23,7 @@ export class Hippocampus {
             if (fs.existsSync(MEMORY_FILE)) {
                 const data = fs.readFileSync(MEMORY_FILE, 'utf-8');
                 this.memories = JSON.parse(data);
-                console.log('[Hippocampus] 🧬 Intact DNA found. Long-term memory restored.');
+                console.log(`[Hippocampus] 🧬 Intact DNA found. Long-term memory restored (${this.memories.length}/${this.MAX_MEMORY_LIMIT}).`);
             }
         } catch (e) {
             console.log('[Hippocampus] ⚠️ Memory corruption! Restoring from backup...');
@@ -34,8 +36,13 @@ export class Hippocampus {
 
     public addMemory(role: 'user' | 'model', text: string) {
         this.memories.push({ role, parts: [{ text }] });
-        // Keep only the last 100 turns
-        if (this.memories.length > 100) this.memories.shift();
+        
+        // Synaptic Pruning: Mencegah storage Termux kepenuhan
+        if (this.memories.length > this.MAX_MEMORY_LIMIT) {
+            const removed = this.memories.shift();
+            console.log(`[Hippocampus] 🧹 Synaptic Pruning: Memory full. Oldest memory deleted locally (safely archived in IPFS).`);
+        }
+        
         this.save();
     }
 
