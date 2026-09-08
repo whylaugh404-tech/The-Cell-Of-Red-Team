@@ -1,6 +1,8 @@
 import * as crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { Hippocampus } from './memory.js';
+import { AutonomousForager } from './foraging.js';
+import { EphemeralReplicator } from '../network/replication.js';
 
 export interface CognitiveSignal {
     signalId: string;
@@ -19,15 +21,20 @@ export class CognitiveMesh {
     private localVectorClock: Record<string, number> = {};
     private ai: GoogleGenAI | null = null;
     private memory: Hippocampus;
+    private forager: AutonomousForager;
+    private replicator: EphemeralReplicator;
 
     constructor(selfId: string) {
         this.selfId = selfId;
         this.localVectorClock[this.selfId] = 0;
         this.memory = new Hippocampus();
+        this.replicator = new EphemeralReplicator(this.memory);
+        this.forager = new AutonomousForager(this.memory, this.replicator);
 
         if (process.env.GEMINI_API_KEY) {
             this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
             console.log('[Cognition] 🧠 Gemini AI Synapses Online.');
+            this.forager.start(); // Memulai proses pencarian intelijen publik secara diam-diam
         } else {
             console.log('[Cognition] ⚠️ Gemini API key missing in .env!');
         }
