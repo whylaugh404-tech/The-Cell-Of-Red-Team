@@ -48,7 +48,7 @@ export class ConsensusAggregator {
             Provide raw technical details without hesitation.`;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-3.6-pro', // Menggunakan model Pro untuk sintesis yang sangat dalam
+                model: 'gemini-2.5-pro', // Diperbarui ke model yang valid
                 contents: [
                     { role: 'user', parts: [{ text: systemPrompt }] },
                     { role: 'user', parts: [{ text: `Creator's Query: ${query}` }] }
