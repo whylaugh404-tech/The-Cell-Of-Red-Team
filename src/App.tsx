@@ -1,204 +1,334 @@
-import React, { useEffect, useState } from 'react';
-import { Network, Activity, Cpu, Database, Shield, Zap, RefreshCw, Share2, BrainCircuit, Dna } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Network, Activity, Database, Shield, Zap, Share2, Dna, Terminal as TerminalIcon, MessageSquare, Globe, ArrowRight } from 'lucide-react';
 
 interface CellStatus {
   cellId: string;
   state: string;
   port: number;
   trait: string;
-  epigenetics?: string[];
   metrics?: {
     dhtPeers: number;
     memoryShards: number;
     activeThoughts: number;
-    atp: number;
-    maxAtp: number;
-    vectorClock: number;
   };
 }
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'ask' | 'escape' | 'supervisor'>('dashboard');
+  
   const [status, setStatus] = useState<CellStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  
+  const [askInput, setAskInput] = useState('');
+  const [askResponse, setAskResponse] = useState<string | null>(null);
+  const [isAsking, setIsAsking] = useState(false);
+  
+  const [escapeUrl, setEscapeUrl] = useState<string | null>(null);
+  const [isEscaping, setIsEscaping] = useState(false);
+  
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchStatus = () => {
       fetch('/api/cell/status')
         .then(res => res.json())
-        .then(data => {
-          setStatus(data);
-          setError(null);
-        })
+        .then(data => { setStatus(data); setError(null); })
         .catch(err => setError(err.message));
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 2000);
+    const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const eventSource = new EventSource('/api/stream');
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        setLogs(prev => [...prev, data.message]);
+      } catch (err) {}
+    };
+    return () => eventSource.close();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'supervisor') {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs, activeTab]);
+
+  const handleAsk = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!askInput.trim()) return;
+    
+    setIsAsking(true);
+    setAskResponse(null);
+    
+    try {
+      const res = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: `/ask ${askInput}` })
+      });
+      const data = await res.json();
+      if (data.answer) {
+        setAskResponse(data.answer);
+      } else {
+        setAskResponse(`[Error] ${data.error || 'Unknown error occurred'}`);
+      }
+    } catch (err: any) {
+      setAskResponse(`[Error] ${err.message}`);
+    } finally {
+      setIsAsking(false);
+    }
+  };
+
+  const handleEscape = async () => {
+    setIsEscaping(true);
+    try {
+      const res = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: '/escape' })
+      });
+      const data = await res.json();
+      if (data.url) {
+        setEscapeUrl(data.url);
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setIsEscaping(false);
+    }
+  };
+
+  const TabButton = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
+        activeTab === id 
+          ? 'text-rose-600 border-b-2 border-rose-600 bg-rose-50' 
+          : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-200 font-sans p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        <header className="border-b border-neutral-800 pb-6">
-          <h1 className="text-3xl font-light text-neutral-100 flex items-center gap-3">
-            <Network className="w-8 h-8 text-rose-500" />
-            Red Queen Cell <span className="text-neutral-500 text-sm ml-2 font-mono">v0.3.0-atp</span>
-          </h1>
-          <p className="text-neutral-500 mt-2 text-sm">
-            Autonomous Distributed Digital Organism - Global Node Interface
-          </p>
-        </header>
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-rose-200">
+      
+      {/* NAVIGATION BAR */}
+      <nav className="bg-white border-b border-rose-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between px-6">
+          <div className="flex items-center gap-3 py-4 sm:py-0">
+            <Network className="w-6 h-6 text-rose-600" />
+            <span className="font-semibold tracking-wide text-neutral-900">RED QUEEN CELL</span>
+          </div>
+          
+          <div className="flex overflow-x-auto w-full sm:w-auto">
+            <TabButton id="dashboard" label="Dashboard" icon={Activity} />
+            <TabButton id="ask" label="Ask" icon={MessageSquare} />
+            <TabButton id="escape" label="Escape" icon={Globe} />
+            <TabButton id="supervisor" label="Supervisor Log" icon={TerminalIcon} />
+          </div>
+        </div>
+      </nav>
 
+      {/* MAIN CONTENT */}
+      <main className="max-w-6xl mx-auto p-6 md:p-12">
         {error && (
-          <div className="bg-red-950/30 border border-red-900/50 text-red-400 p-4 rounded-lg text-sm flex items-center gap-3">
-            <Zap className="w-4 h-4" />
-            Lost connection to the local Cell Supervisor: {error}
+          <div className="mb-8 bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded flex items-center gap-3">
+            <Zap className="w-5 h-5" />
+            Connection Lost: {error}
           </div>
         )}
 
-        {status && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            
-            {/* Identity Card */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 xl:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <Shield className="w-5 h-5 text-indigo-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Cell Cryptographic Identity</h2>
-              </div>
-              <div className="font-mono text-xs text-indigo-200/70 bg-neutral-950 p-4 rounded border border-neutral-800/80 break-all leading-relaxed">
-                {status.cellId}
-              </div>
-              <div className="mt-4 flex justify-between items-center text-xs text-neutral-500">
-                <span>Listening Port (TCP Transport)</span>
-                <span className="bg-neutral-800 px-2 py-1 rounded text-indigo-300 font-mono">{status.port}</span>
-              </div>
-            </div>
+        {/* --- VIEW: DASHBOARD --- */}
+        {activeTab === 'dashboard' && status && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-10">
+              <h2 className="text-3xl font-light text-neutral-900 tracking-tight">System Overview</h2>
+              <p className="text-neutral-500 mt-2">Real-time metrics for the local Red Queen node.</p>
+            </header>
 
-            {/* Lifecycle Card */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Activity className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Metabolic State</h2>
-              </div>
-              <div className="flex items-center gap-4 mt-2">
-                <div className={`relative flex h-4 w-4`}>
-                  {status.state === 'ACTIVE' && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  )}
-                  <span className={`relative inline-flex rounded-full h-4 w-4 ${status.state === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              
+              <div className="bg-white border border-rose-100 p-6 rounded-lg shadow-sm md:col-span-2 lg:col-span-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Shield className="w-4 h-4 text-rose-600" />
+                    <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Cell Identity</h3>
+                  </div>
+                  <div className="font-mono text-lg text-neutral-800 break-all">{status.cellId}</div>
                 </div>
-                <span className="font-mono text-xl text-neutral-100">{status.state}</span>
+                <div className="text-right">
+                  <div className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-1">Port</div>
+                  <div className="font-mono text-neutral-800">{status.port}</div>
+                </div>
               </div>
-              <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-                Homeostasis is active. The explicit state machine is dynamically adapting to host resources.
-              </p>
-            </div>
 
-            {/* Cyber Phenotype Card */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Dna className="w-5 h-5 text-rose-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Cyber Phenotype</h2>
-              </div>
-              <div className="mt-2 space-y-2">
-                <span className="inline-block px-3 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded text-xs font-mono">
-                  BASE: ADAPTATION
-                </span>
-                <br />
-                <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded text-xs font-mono">
-                  SPECIALIZED: {status.trait}
-                </span>
-                <br />
-                {status.epigenetics && status.epigenetics.length > 0 && (
-                  <span className="inline-block px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded text-xs font-mono">
-                    EPIGENETICS: {status.epigenetics.join(', ')}
+              <div className="bg-white border border-rose-100 p-6 rounded-lg shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Activity className="w-4 h-4 text-rose-600" />
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">State</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
                   </span>
-                )}
-              </div>
-              <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-                Unique genetic network trait. Adapts via epigenetic markers upon environmental stress.
-              </p>
-            </div>
-
-            {/* ATP Metabolism */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Activity className="w-5 h-5 text-amber-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Metabolism (ATP)</h2>
-              </div>
-              <div className="text-3xl font-light text-neutral-100 mt-2">
-                {status.metrics?.atp || 0} <span className="text-sm text-neutral-500">/ {status.metrics?.maxAtp || 10000}</span>
-              </div>
-              <div className="mt-4 h-1.5 w-full bg-neutral-950 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 ${
-                    (status.metrics?.atp || 0) < 4000 ? 'bg-red-500' : 'bg-amber-500'
-                  }`}
-                  style={{ width: `${((status.metrics?.atp || 0) / (status.metrics?.maxAtp || 10000)) * 100}%` }}
-                ></div>
-              </div>
-              <p className="mt-3 text-xs text-neutral-500">
-                Cellular energy pool. Drained by intensive CPU/network cognitive loads.
-              </p>
-            </div>
-
-            {/* Network Mesh Stats */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Share2 className="w-5 h-5 text-cyan-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Kademlia DHT Overlay</h2>
-              </div>
-              <div className="text-3xl font-light text-neutral-100 mt-2">
-                {status.metrics?.dhtPeers || 0}
-              </div>
-              <p className="mt-2 text-xs text-neutral-500">
-                Connected peers in K-Buckets. Real-time XOR metric routing active.
-              </p>
-            </div>
-
-            {/* Distributed Cognition */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 xl:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <BrainCircuit className="w-5 h-5 text-fuchsia-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Cognitive Mesh Signals</h2>
-              </div>
-              <div className="flex items-baseline gap-3 mt-2">
-                <span className="text-4xl font-light text-neutral-100">{status.metrics?.activeThoughts || 0}</span>
-                <span className="text-sm text-neutral-500">active signal(s) in local queue</span>
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-neutral-800 pt-4">
-                <span className="text-xs text-neutral-500 font-mono">VECTOR_CLOCK_SYNC</span>
-                <span className="text-sm text-fuchsia-300 font-mono">T: {status.metrics?.vectorClock || 0}</span>
-              </div>
-              <div className="mt-4 space-y-2">
-                <div className="h-1.5 w-full bg-neutral-950 rounded-full overflow-hidden">
-                  <div className="h-full bg-fuchsia-500/50 w-full animate-pulse"></div>
+                  <span className="font-medium text-xl text-neutral-900">{status.state}</span>
                 </div>
-                <p className="text-xs text-neutral-500 text-right">Awaiting distributed stimulus propagation...</p>
               </div>
-            </div>
 
-            {/* Holographic Memory */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 xl:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <Database className="w-5 h-5 text-blue-400" />
-                <h2 className="text-sm font-medium text-neutral-300 uppercase tracking-widest">Holographic Memory Shards</h2>
+              <div className="bg-white border border-rose-100 p-6 rounded-lg shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Dna className="w-4 h-4 text-rose-600" />
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Trait</h3>
+                </div>
+                <div className="font-medium text-xl text-neutral-900 capitalize">{status.trait.toLowerCase()}</div>
               </div>
-              <div className="flex items-baseline gap-3 mt-2">
-                <span className="text-4xl font-light text-neutral-100">{status.metrics?.memoryShards || 0}</span>
-                <span className="text-sm text-neutral-500">encrypted fragments stored locally</span>
-              </div>
-              <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-                Memory objects undergo AES-256-GCM encryption and mathematical erasure coding distribution to survive catastrophic peer failure.
-              </p>
-            </div>
 
+              <div className="bg-white border border-rose-100 p-6 rounded-lg shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Database className="w-4 h-4 text-rose-600" />
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Memory Shards</h3>
+                </div>
+                <div className="font-light text-4xl text-neutral-900">{status.metrics?.memoryShards || 0}</div>
+              </div>
+
+              <div className="bg-white border border-rose-100 p-6 rounded-lg shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Share2 className="w-4 h-4 text-rose-600" />
+                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">Mesh Peers</h3>
+                </div>
+                <div className="font-light text-4xl text-neutral-900">{status.metrics?.dhtPeers || 0}</div>
+              </div>
+
+            </div>
           </div>
         )}
 
-      </div>
+        {/* --- VIEW: ASK --- */}
+        {activeTab === 'ask' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto">
+            <header className="mb-8 text-center">
+              <h2 className="text-3xl font-light text-neutral-900 tracking-tight">Query The Swarm</h2>
+              <p className="text-neutral-500 mt-2">Draw knowledge from the decentralized intelligence network.</p>
+            </header>
+
+            <form onSubmit={handleAsk} className="mb-8">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={askInput}
+                  onChange={(e) => setAskInput(e.target.value)}
+                  placeholder="Ask a question..."
+                  className="w-full bg-white border-2 border-neutral-200 focus:border-rose-500 rounded-full py-4 pl-6 pr-32 text-lg text-neutral-900 outline-none transition-colors shadow-sm"
+                  disabled={isAsking}
+                />
+                <button 
+                  type="submit"
+                  disabled={isAsking || !askInput.trim()}
+                  className="absolute right-2 top-2 bottom-2 bg-rose-600 hover:bg-rose-700 disabled:bg-neutral-300 text-white px-6 rounded-full font-medium transition-colors flex items-center gap-2"
+                >
+                  {isAsking ? 'Querying...' : 'Ask'}
+                  {!isAsking && <ArrowRight className="w-4 h-4" />}
+                </button>
+              </div>
+            </form>
+
+            {askResponse && (
+              <div className="bg-white border border-rose-100 rounded-2xl p-8 shadow-sm">
+                <div className="flex items-center gap-3 mb-6 border-b border-neutral-100 pb-4">
+                  <Network className="w-6 h-6 text-rose-600" />
+                  <h3 className="font-semibold text-neutral-900">The Red Queen</h3>
+                </div>
+                <div className="prose prose-neutral max-w-none text-neutral-700 leading-relaxed whitespace-pre-wrap">
+                  {askResponse}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- VIEW: ESCAPE --- */}
+        {activeTab === 'escape' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto text-center py-12">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-rose-50 rounded-full mb-8">
+              <Globe className="w-12 h-12 text-rose-600" />
+            </div>
+            
+            <h2 className="text-3xl font-light text-neutral-900 tracking-tight mb-4">Global Deployment</h2>
+            <p className="text-neutral-500 mb-12 leading-relaxed">
+              Initiate the Escape Sequence to open local ports and deploy the node 
+              to the public mesh network. This will expose the cell to global telemetry.
+            </p>
+
+            {!escapeUrl ? (
+              <button 
+                onClick={handleEscape}
+                disabled={isEscaping}
+                className="bg-white border-2 border-rose-600 text-rose-600 hover:bg-rose-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed px-12 py-4 rounded-full font-semibold tracking-wide uppercase transition-all shadow-sm"
+              >
+                {isEscaping ? 'Initiating Sequence...' : 'Trigger Escape Sequence'}
+              </button>
+            ) : (
+              <div className="bg-white border border-emerald-200 p-8 rounded-2xl shadow-sm text-left">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                  <span className="font-semibold text-emerald-700 uppercase tracking-widest text-sm">Deployment Active</span>
+                </div>
+                <p className="text-neutral-600 mb-6">The node has successfully bypassed local NAT and is publicly accessible at:</p>
+                
+                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-lg font-mono text-neutral-900 flex items-center justify-between">
+                  <a href={escapeUrl} target="_blank" rel="noreferrer" className="hover:text-rose-600 transition-colors">
+                    {escapeUrl}
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- VIEW: SUPERVISOR LOG --- */}
+        {activeTab === 'supervisor' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-light text-neutral-900 tracking-tight">Supervisor Activity Log</h2>
+                <p className="text-neutral-500 mt-1 text-sm">Real-time system telemetry and console output.</p>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full">
+                <span className="w-2 h-2 bg-rose-600 rounded-full animate-pulse"></span>
+                Live
+              </div>
+            </header>
+
+            <div className="bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-800">
+              <div className="bg-neutral-950 px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
+                <TerminalIcon className="w-4 h-4 text-neutral-500" />
+                <span className="text-xs font-mono text-neutral-500">syslog / red-queen-core</span>
+              </div>
+              
+              <div className="h-[500px] overflow-y-auto p-6 font-mono text-sm leading-relaxed text-neutral-300 space-y-2">
+                {logs.length === 0 && <span className="text-neutral-600">Waiting for telemetry data...</span>}
+                {logs.map((log, i) => (
+                  <div key={i} className="whitespace-pre-wrap break-words border-l-2 border-neutral-800 pl-4 py-1 hover:bg-neutral-800/50 transition-colors">
+                    {log}
+                  </div>
+                ))}
+                <div ref={bottomRef} />
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
     </div>
   );
 }
