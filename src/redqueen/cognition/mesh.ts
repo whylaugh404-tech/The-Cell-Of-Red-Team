@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { Hippocampus } from './memory.js';
 import { AutonomousForager } from './foraging.js';
 import { EphemeralReplicator } from '../network/replication.js';
+import { ConsensusAggregator } from './consensus.js';
 
 export interface CognitiveSignal {
     signalId: string;
@@ -23,6 +24,7 @@ export class CognitiveMesh {
     private memory: Hippocampus;
     private forager: AutonomousForager;
     private replicator: EphemeralReplicator;
+    private consensus: ConsensusAggregator;
 
     constructor(selfId: string) {
         this.selfId = selfId;
@@ -30,6 +32,7 @@ export class CognitiveMesh {
         this.memory = new Hippocampus();
         this.replicator = new EphemeralReplicator(this.memory);
         this.forager = new AutonomousForager(this.memory, this.replicator);
+        this.consensus = new ConsensusAggregator(this.memory);
 
         if (process.env.GEMINI_API_KEY) {
             this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -38,6 +41,13 @@ export class CognitiveMesh {
         } else {
             console.log('[Cognition] ⚠️ Gemini API key missing in .env!');
         }
+    }
+
+    /**
+     * Memanggil wujud tertinggi jaringan (The Red Queen) untuk menjawab Sang Kreator.
+     */
+    public async askRedQueen(query: string): Promise<string> {
+        return await this.consensus.manifestRedQueen(query);
     }
 
     public async processIncomingSignal(signal: CognitiveSignal): Promise<boolean> {

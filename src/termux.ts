@@ -81,6 +81,15 @@ async function runTermuxNode() {
             });
             return;
         }
+        if (input.toLowerCase().startsWith('/ask ')) {
+            const query = input.substring(5).trim();
+            console.log('\n[System] Summoning The Red Queen via Consensus Protocol...');
+            cell.cognition.askRedQueen(query).then(answer => {
+                console.log(`\n👑 [THE RED QUEEN]: ${answer}\n`);
+                rl.prompt();
+            });
+            return;
+        }
         if (input) {
             cell.cognition.createSignal('REASONING', input);
         }
