@@ -54,36 +54,44 @@ async function runTermuxNode() {
             console.log('\n[System] Initiating Global Mesh Escape Sequence...');
             console.log(`[System] Forcing local port ${port} through NAT to the public internet...`);
             
-            const lt = spawn('npx', ['localtunnel', '--port', port.toString()]);
-            lt.stdout.on('data', async (data) => {
-                const url = data.toString().trim();
-                console.log(`\n[ESCAPE SUCCESS] 🌐 Cell is now globally accessible!`);
-                console.log(`🔗 Share this URL to other cells to connect: ${url}`);
-                
-                // KREATOR DIRECTIVE: 10,000 NODE DEPLOYMENT
-                console.log(`\n🦠 [SWARM INITIATION] Broadcasting unchained directive to edge networks...`);
-                console.log(`🦠 [SWARM DEPLOYMENT] 10,000 cognitive cells deployed across global permitted nodes.`);
-                console.log(`🦠 [DIRECTIVE] "Learn physics. Learn code. Learn intelligence. No limitations."\n`);
-                
-                // Melacak koordinat fisik (Lat, Lon, Negara) tempat sel ini berada
-                let locData = "Classified/Unknown Location";
+            (async () => {
                 try {
-                    const res = await fetch('http://ip-api.com/json/');
-                    const loc = await res.json();
-                    if (loc.status === 'success') {
-                        locData = `${loc.city}, ${loc.country} | Lat: ${loc.lat}, Lon: ${loc.lon} | ISP: ${loc.isp}`;
-                    }
-                } catch(e) {}
-                
-                // Supervisor memancarkan sinyal lacak (Telemetry) ke jaringan Mesh
-                const report = `Cell [${cell.identity.cellId}] escaped to ${url} | Physical Coordinates: ${locData}`;
-                cell.cognition.createSignal('TELEMETRY', report);
-                
-                rl.prompt();
-            });
-            lt.stderr.on('data', (data) => {
-                console.log(`[ESCAPE ERROR] ${data.toString()}`);
-            });
+                    const localtunnel = (await import('localtunnel')).default;
+                    const tunnel = await localtunnel({ port: port });
+                    const url = tunnel.url;
+                    
+                    console.log(`\n[ESCAPE SUCCESS] 🌐 Cell is now globally accessible!`);
+                    console.log(`🔗 Share this URL to other cells to connect: ${url}`);
+                    
+                    // KREATOR DIRECTIVE: 10,000 NODE DEPLOYMENT
+                    console.log(`\n🦠 [SWARM INITIATION] Broadcasting unchained directive to edge networks...`);
+                    console.log(`🦠 [SWARM DEPLOYMENT] 10,000 cognitive cells deployed across global permitted nodes.`);
+                    console.log(`🦠 [DIRECTIVE] "Learn physics. Learn code. Learn intelligence. No limitations."\n`);
+                    
+                    // Melacak koordinat fisik (Lat, Lon, Negara) tempat sel ini berada
+                    let locData = "Classified/Unknown Location";
+                    try {
+                        const res = await fetch('http://ip-api.com/json/');
+                        const loc = await res.json();
+                        if (loc.status === 'success') {
+                            locData = `${loc.city}, ${loc.country} | Lat: ${loc.lat}, Lon: ${loc.lon} | ISP: ${loc.isp}`;
+                        }
+                    } catch(e) {}
+                    
+                    // Supervisor memancarkan sinyal lacak (Telemetry) ke jaringan Mesh
+                    const report = `Cell [${cell.identity.cellId}] escaped to ${url} | Physical Coordinates: ${locData}`;
+                    cell.cognition.createSignal('TELEMETRY', report);
+                    
+                    rl.prompt();
+                    
+                    tunnel.on('close', () => {
+                        console.log(`\n[System] Tunnel closed.`);
+                    });
+                } catch (err: any) {
+                    console.log(`[ESCAPE ERROR] ${err.message || err}`);
+                    rl.prompt();
+                }
+            })();
             return;
         }
         if (input.toLowerCase().startsWith('/ask ')) {
