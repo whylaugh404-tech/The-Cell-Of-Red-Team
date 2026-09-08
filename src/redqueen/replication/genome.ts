@@ -32,6 +32,7 @@ export class ReplicationController {
         const childGenome: CellGenome = {
             generation: parentGenome.generation + 1,
             parentId: parentId,
+            specializedTrait: parentGenome.specializedTrait,
             traits: { ...parentGenome.traits },
             mutationRecord: [...parentGenome.mutationRecord]
         };

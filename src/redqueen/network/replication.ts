@@ -23,7 +23,7 @@ export class EphemeralReplicator {
             generation: this.replicationCount++,
             timestamp: new Date().toISOString(),
             // Mengambil seluruh pengetahuan yang telah dipelajari dari Foraging
-            hippocampus_snapshot: this.memory.getAllMemories(),
+            hippocampus_snapshot: this.memory.getContext(),
             // Hash kriptografis sebagai validasi integritas DNA
             integrity_hash: crypto.createHash('sha256').update(Date.now().toString()).digest('hex')
         };
