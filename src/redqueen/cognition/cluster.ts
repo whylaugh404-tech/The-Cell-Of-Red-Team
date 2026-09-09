@@ -408,12 +408,24 @@ export class SwarmClusterManager {
             recentDigests: leader.digests.slice(0, 3)
         }));
 
+        let totalRawSignals = 0;
+        let totalDigests = 0;
+        for (const leader of this.clusters.values()) {
+            for (const d of leader.digests) {
+                totalRawSignals += d.signalsAggregated;
+                totalDigests++;
+            }
+        }
+        const calculatedReduction = totalRawSignals > 0 && totalDigests > 0
+            ? `${((1 - (totalDigests / totalRawSignals)) * 100).toFixed(1)}%`
+            : '0.0%';
+
         return {
             totalWorkers: this.getTotalWorkerCount(),
             totalLeaders: this.clusters.size,
             cellsPerLeaderRatio: SwarmClusterManager.CELLS_PER_LEADER,
             redQueenOverloadProtected: true,
-            averageNoiseReduction: '96.4%',
+            averageNoiseReduction: calculatedReduction,
             clusters: clusterList,
             recentRelayLogs: this.relayLog.slice(0, 15)
         };

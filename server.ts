@@ -164,10 +164,20 @@ async function startServer() {
       });
   });
 
-  // Web API: Command Execution
+  // Web API: Command Execution (Supports Cryptographic Governance Verification)
   app.post('/api/command', async (req, res) => {
-      const { command } = req.body;
-      const input = command.trim();
+      const { command, signature, publicKey, signedPayload } = req.body;
+      const input = (command || '').trim();
+
+      // If signature is provided, execute via GovernanceEngine
+      if (signature && publicKey && signedPayload) {
+          const authResult = localNode.governance.verifyCommand(signedPayload, signature, publicKey);
+          if (!authResult.authorized) {
+              console.warn(`[GOVERNANCE REJECTED] Command denied: ${authResult.reason}`);
+              return res.status(403).json({ success: false, error: authResult.reason });
+          }
+          console.log(`[GOVERNANCE VERIFIED] Authorized Creator directive executed: ${authResult.command?.action}`);
+      }
       
       if (input.toLowerCase() === '/escape') {
           console.log('\n[System] Initiating Global Mesh Escape Sequence...');
@@ -278,12 +288,15 @@ async function startServer() {
           rl.prompt();
       });
   });
+
+  // Genuine Deterministic Telemetry Loop
+  setInterval(() => {
+    const memoryUsage = process.memoryUsage();
+    const dhtCount = localNode.dht.getRoutingTableSize();
+    const activeSockets = localNode.transport.getActiveConnectionCount();
+    const workerCount = localNode.cognition.swarmClusters.getTotalWorkerCount();
+    console.info(`[TELEMETRY] 📡 Heartbeat | RSS: ${(memoryUsage.rss / 1024 / 1024).toFixed(2)}MB | Heap: ${(memoryUsage.heapUsed / 1024 / 1024).toFixed(2)}MB | DHT Verified Nodes: ${dhtCount} | Active TCP Sockets: ${activeSockets} | Swarm Workers: ${workerCount}`);
+  }, 10000);
 }
 
 startServer();
-
-// Global Telemetry Loop for the Frontend Supervisor Log
-setInterval(() => {
-    const memoryUsage = process.memoryUsage();
-    console.info(`[TELEMETRY] 📡 Heartbeat... | RAM: ${(memoryUsage.rss / 1024 / 1024).toFixed(2)}MB | Active DHT Nodes: ${Math.floor(Math.random() * 50) + 120} | Mesh Connections: STABLE`);
-}, 10000);

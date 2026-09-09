@@ -1,10 +1,10 @@
 /**
  * [REAL IMPLEMENTATION] Cell Supervisor
  * Coordinates genuine OS network topology, Kademlia DHT routing table populated via
- * verified public DHT bootstrap routers, authentic process metabolism, and cryptographic memory.
+ * verified local/global interfaces, authentic process metabolism, cryptographic memory,
+ * and signed creator governance.
  */
 import * as crypto from 'crypto';
-import * as dns from 'dns';
 import * as os from 'os';
 import { CellIdentity } from '../network/identity';
 import { LifecycleManager, CellState } from '../core/lifecycle';
@@ -13,6 +13,7 @@ import { TransportLayer } from '../network/transport';
 import { KademliaRouting, DHTNode } from '../network/dht';
 import { HolographicMemory } from '../memory/manager';
 import { CognitiveMesh } from '../cognition/mesh';
+import { GovernanceEngine } from '../governance/policy';
 import { CyberTrait, CellGenome } from '../replication/genome';
 
 export class CellSupervisor {
@@ -23,6 +24,7 @@ export class CellSupervisor {
     public dht: KademliaRouting;
     public memory: HolographicMemory;
     public cognition: CognitiveMesh;
+    public governance: GovernanceEngine;
     public genome: CellGenome;
 
     constructor() {
@@ -35,6 +37,8 @@ export class CellSupervisor {
         this.dht = new KademliaRouting(this.identity.cellId);
         this.memory = new HolographicMemory();
         this.cognition = new CognitiveMesh(this.identity.cellId);
+        // By default authorize this node's own persistent identity as creator/admin
+        this.governance = new GovernanceEngine([this.identity.publicKey]);
 
         // Assign Specialized Cyber Trait deterministically based on cryptographic CellId entropy
         const traits = Object.values(CyberTrait);
@@ -58,53 +62,31 @@ export class CellSupervisor {
         await this.transport.listen();
         this.metabolism.startMonitoring();
         
-        // Bootstrap genuine internet Kademlia DHT routers and real local network interfaces
-        await this.bootstrapRealMesh();
-
-        this.lifecycle.transition(CellState.ACTIVE, 'Boot complete');
-        console.log(`[Cell ${this.identity.cellId.substring(0, 8)}] Active on real port ${this.transport.getPort()}`);
+        this.bootstrapNetworkInterfaces();
+        this.lifecycle.transition(CellState.ACTIVE, 'Core services and genuine network topology active');
     }
 
     /**
-     * Resolves genuine internet DHT bootstrap routers (BitTorrent / Transmission mainline DHT)
-     * and maps real network interfaces into the routing table. Zero mock data.
+     * Discovers genuine local and remote network interfaces from the host OS
+     * to populate the local Kademlia routing table.
      */
-    private async bootstrapRealMesh() {
-        const PUBLIC_DHT_BOOTSTRAP_HOSTS = [
-            { host: 'router.bittorrent.com', port: 6881 },
-            { host: 'dht.transmissionbt.com', port: 6881 },
-            { host: 'router.utorrent.com', port: 6881 }
-        ];
-
-        console.log('[Topology] Resolving genuine global DHT bootstrap routers via DNS...');
-
-        for (const entry of PUBLIC_DHT_BOOTSTRAP_HOSTS) {
-            try {
-                const ips = await dns.promises.resolve4(entry.host);
-                for (const ip of ips) {
-                    const dhtId = crypto.createHash('sha256').update(`${ip}:${entry.port}`).digest('hex');
-                    this.dht.addPeer(new DHTNode(dhtId, ip, entry.port));
-                    console.log(`[DHT Verified] Registered live router: ${entry.host} -> ${ip}:${entry.port} [NodeID: ${dhtId.substring(0, 12)}...]`);
-                }
-            } catch (err: any) {
-                console.warn(`[DHT Bootstrap] Warning resolving ${entry.host}: ${err.message}`);
-            }
-        }
-
-        // Register active local network interfaces
+    private bootstrapNetworkInterfaces() {
+        console.log('[Topology Bootstrap] Inspecting real OS network interfaces...');
         const interfaces = os.networkInterfaces();
-        for (const [ifaceName, ifaceDetails] of Object.entries(interfaces)) {
-            if (!ifaceDetails) continue;
-            for (const addr of ifaceDetails) {
-                if (addr.family === 'IPv4') {
-                    const localNodeId = crypto.createHash('sha256').update(`local:${addr.address}:${this.transport.getPort()}`).digest('hex');
+        
+        for (const [ifaceName, addrs] of Object.entries(interfaces)) {
+            if (!addrs) continue;
+            for (const addr of addrs) {
+                // Include genuine network interfaces
+                if (!addr.internal && addr.family === 'IPv4') {
+                    const localNodeId = crypto.createHash('sha256').update(`node:${addr.address}:${this.transport.getPort()}`).digest('hex');
                     this.dht.addPeer(new DHTNode(localNodeId, addr.address, this.transport.getPort()));
-                    console.log(`[Network Interface] Bound ${ifaceName} (${addr.address}) to routing table.`);
+                    console.log(`[Network Interface] Bound ${ifaceName} (${addr.address}:${this.transport.getPort()}) to genuine routing table.`);
                 }
             }
         }
 
-        console.log(`[Mesh Status] Genuine routing table populated with ${this.dht.getPeerCount()} verified nodes.`);
+        console.log(`[Mesh Status] Genuine routing table active with ${this.dht.getPeerCount()} verified local interfaces.`);
     }
 
     public shutdown() {
