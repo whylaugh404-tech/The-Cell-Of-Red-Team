@@ -53,6 +53,17 @@ export interface ChatMessage {
   model?: string;
 }
 
+export const PUTER_MODELS = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+  { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+  { id: 'gpt-4o', name: 'GPT-4o' },
+  { id: 'meta-llama/Meta-Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B' },
+  { id: 'auto', name: 'Auto Failover (Semua Model)' }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'dispatch' | 'ask' | 'escape' | 'supervisor'>('dashboard');
   
@@ -70,7 +81,8 @@ export default function App() {
   const [askInput, setAskInput] = useState('');
   const [askResponse, setAskResponse] = useState<string | null>(null);
   const [isAsking, setIsAsking] = useState(false);
-  const [activeModelName, setActiveModelName] = useState<string>('gemini-2.5-flash');
+  const [selectedModelId, setSelectedModelId] = useState<string>('gemini-2.5-flash');
+  const [activeModelName, setActiveModelName] = useState<string>('Gemini 2.5 Flash');
   const [failoverNotice, setFailoverNotice] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -260,21 +272,18 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
     // 1. Eksekusi langsung melalui Puter.js di Web Browser (Multi-model failover otomatis)
     if (win.puter && win.puter.ai && typeof win.puter.ai.chat === 'function') {
       try {
-        // Pool Model resmi yang terdaftar & aktif di Puter.js
-        const PUTER_FALLBACK_MODELS = [
-          { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-          { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-          { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' },
-          { id: 'deepseek-chat', name: 'DeepSeek Chat' },
-          { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-          { id: 'gpt-4o', name: 'GPT-4o' },
-          { id: '', name: 'Puter Default AI' }
-        ];
+        let modelsToTry = [];
+        if (selectedModelId === 'auto') {
+          modelsToTry = PUTER_MODELS.filter(m => m.id !== 'auto');
+        } else {
+          const matched = PUTER_MODELS.find(m => m.id === selectedModelId);
+          modelsToTry = matched ? [matched] : [PUTER_MODELS[0]];
+        }
 
         let success = false;
         let lastErrorMsg = '';
 
-        for (const modelItem of PUTER_FALLBACK_MODELS) {
+        for (const modelItem of modelsToTry) {
           try {
             setActiveModelName(modelItem.name);
             const opts = modelItem.id ? { model: modelItem.id } : undefined;
@@ -319,13 +328,18 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
           } catch (modelErr: any) {
             const errText = modelErr?.message || String(modelErr);
             lastErrorMsg = errText;
-            console.warn(`[Failover] Model ${modelItem.name} kuota habis/tidak aktif: ${errText}, berganti ke model berikutnya...`);
-            setFailoverNotice(`Model ${modelItem.name} kuota/token habis atau tidak aktif. Beralih otomatis ke model berikutnya...`);
+            console.warn(`[Failover] Model ${modelItem.name} kuota habis/tidak aktif: ${errText}`);
+            
+            if (modelsToTry.length > 1) {
+              setFailoverNotice(`Model ${modelItem.name} kuota/token habis atau tidak aktif. Beralih otomatis ke model berikutnya...`);
+            } else {
+              setFailoverNotice(`Model ${modelItem.name} kuota habis atau dibatasi. Silakan pilih model lain di dropdown.`);
+            }
           }
         }
 
         if (!success) {
-          setAskResponse(`[Pemberitahuan: Seluruh model di pool Puter.js sedang sibuk: ${lastErrorMsg}. Mencoba menghubungkan ke sinapsis server...]`);
+          setAskResponse(`[Pemberitahuan: Seluruh model di pool Puter.js sedang sibuk atau kehabisan token: ${lastErrorMsg}. Mencoba menghubungkan ke sinapsis server...]`);
         }
       } catch (puterErr: any) {
         console.warn('Puter.js error:', puterErr);
@@ -1161,9 +1175,25 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
         {activeTab === 'ask' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto">
             <header className="mb-4 text-center">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-neutral-900/50 border border-red-900/40 rounded-full text-xs font-mono text-red-500 mb-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-black border border-red-900/40 rounded-full text-xs font-mono text-red-500 mb-2 shadow-xs">
                 <span className="w-2 h-2 rounded-full bg-red-900 animate-pulse"></span>
-                Red Queen Consciousness Matrix • Model: {activeModelName}
+                <span className="text-neutral-500 hidden sm:inline">Consciousness Matrix • Model:</span>
+                <span className="text-neutral-500 sm:hidden">Model:</span>
+                <select 
+                  value={selectedModelId}
+                  onChange={(e) => {
+                    setSelectedModelId(e.target.value);
+                    const name = PUTER_MODELS.find(m => m.id === e.target.value)?.name || '';
+                    setActiveModelName(name);
+                    setFailoverNotice(null);
+                  }}
+                  className="bg-transparent border-none text-white font-bold outline-none cursor-pointer appearance-none pr-4 focus:ring-0"
+                  style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23ff0000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpolyline points=%226 9 12 15 18 9%22%3E%3C/polyline%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right center' }}
+                >
+                  {PUTER_MODELS.map(m => (
+                    <option key={m.id} value={m.id} className="bg-black text-white">{m.name}</option>
+                  ))}
+                </select>
               </div>
               <h2 className="text-2xl md:text-3xl font-light text-white tracking-tight">Red Queen Neural Synapse</h2>
               <p className="text-neutral-400 mt-1 text-xs md:text-sm">

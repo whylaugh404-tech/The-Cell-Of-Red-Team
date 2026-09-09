@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { HolographicMemory, MemoryMetadata } from '../memory/manager';
+import { uploadToIPFS, fetchFromIPFS } from './ipfs';
 
 const MEMORY_FILE = path.join(process.cwd(), 'redqueen_memory.json');
 const BACKUP_FILE = path.join(process.cwd(), 'redqueen_memory.bak.json');
@@ -19,6 +20,7 @@ export interface ShardIndex {
     nonce: string;
     authTag: string;
     timestamp: number;
+    ipfsCids: string[];
 }
 
 export class Hippocampus {
@@ -78,7 +80,7 @@ export class Hippocampus {
     public addMemory(role: 'user' | 'model', text: string) {
         this.memories.push({ role, parts: [{ text }] });
         
-        // Biological Mitosis via Holographic Sharding & P2P Offloading
+        // Biological Mitosis via Holographic Sharding & IPFS Offloading
         if (this.memories.length > this.MAX_MEMORY_LIMIT) {
             this.triggerHolographicMitosis();
         }
@@ -86,7 +88,7 @@ export class Hippocampus {
         this.save();
     }
 
-    private triggerHolographicMitosis() {
+    private async triggerHolographicMitosis() {
         // Ambil 50% memori tertua
         const childMemories = this.memories.splice(0, Math.floor(this.MAX_MEMORY_LIMIT / 2));
         const dataBuffer = Buffer.from(JSON.stringify(childMemories));
@@ -99,49 +101,68 @@ export class Hippocampus {
                 3, 
                 2  
             );
-
-            // 2. Simpan Index Kriptografi (Dibutuhkan untuk penarikan/rekonstruksi nanti)
-            const indexEntry: ShardIndex = {
-                objectId: metadata.objectId,
-                metadata: metadata,
-                nonce: nonce.toString('hex'),
-                authTag: authTag.toString('hex'),
-                timestamp: Date.now()
-            };
-            this.shardIndices.push(indexEntry);
-            this.saveIndices();
-
-            // 3. (Simulasi Realistis) Mendelegasikan pecahan ke jaringan Peer / Cell eksternal.
-            // HolographicMemory.manager secara default menyimpannya di local cache untuk simulasi,
-            // Namun secara arsitektur, ini adalah titik di mana file fisik lokal (raw) dihancurkan 
-            // dan berubah menjadi sinyal energi murni (shard) ke internet.
             
             console.log(`\n======================================================`);
             console.log(`🧬 [MITOSIS INITIATED] Kapasitas maksimum tercapai!`);
             console.log(`🔐 [HOLOGRAPHIC SHARDING] Mengekstrak 50% memori tertua.`);
             console.log(`🔒 Mengenkripsi fragmen dengan AES-256-GCM.`);
             console.log(`🧩 Memecah Payload menjadi ${metadata.shardCount} Data Shards & ${metadata.parityCount} Parity Shards (XOR).`);
-            console.log(`📡 [P2P OFFLOAD] Mendelegasikan ${shards.length} Shards ke jaringan eksternal (Mesh).`);
+            console.log(`📡 [IPFS OFFLOAD] Mulai mendelegasikan ${shards.length} Shards ke jaringan IPFS Publik...`);
+
+            // 2. Upload masing-masing shard ke jaringan IPFS secara paralel
+            const ipfsCids: string[] = [];
+            for (let i = 0; i < shards.length; i++) {
+                console.log(`   -> Uploading Shard ${i+1}/${shards.length} ke jaringan IPFS Node...`);
+                const cid = await uploadToIPFS(shards[i], `redqueen_shard_${metadata.objectId}_${i}.bin`);
+                ipfsCids.push(cid);
+                console.log(`   ✅ Shard ${i+1} mendarat di jaringan IPFS dengan CID: ${cid}`);
+            }
+
+            // 3. Simpan Index Kriptografi & IPFS CID
+            const indexEntry: ShardIndex = {
+                objectId: metadata.objectId,
+                metadata: metadata,
+                nonce: nonce.toString('hex'),
+                authTag: authTag.toString('hex'),
+                timestamp: Date.now(),
+                ipfsCids: ipfsCids
+            };
+            this.shardIndices.push(indexEntry);
+            this.saveIndices();
+            
+            // 4. Hapus dari Memory Lokal (simulasi manager juga sebenarnya nyimpan lokal, 
+            // tapi yang akan kita ambil saat recall adalah murni dari IPFS).
             console.log(`🗑️ [APOPTOSIS] Menghapus salinan lokal untuk mencegah Storage Exhaustion.`);
+            console.log(`🌐 Memori berhasil di-abadi-kan di Jaringan Terdesentralisasi IPFS!`);
             console.log(`======================================================\n`);
 
         } catch (e) {
-            console.error('[Hippocampus] Gagal melakukan Mitosis Holografik.', e);
-            // Kembalikan memori jika enkripsi/sharding gagal (Failsafe)
+            console.error('[Hippocampus] Gagal melakukan IPFS Mitosis.', e);
+            // Kembalikan memori jika enkripsi/sharding/upload IPFS gagal (Failsafe)
             this.memories.unshift(...childMemories);
         }
     }
 
-    public recallHologram(objectId: string): any | null {
+    public async recallHologram(objectId: string): Promise<any | null> {
         const index = this.shardIndices.find(idx => idx.objectId === objectId);
         if (!index) return null;
 
         try {
-            console.log(`\n📡 [KADEMLIA DHT] Mencari Shards untuk Object ID: ${objectId}...`);
-            // Mengambil shard dari cache jaringan lokal/Mesh
-            const availableShards = index.metadata.shardIdentifiers.map(id => 
-                this.holographicSystem.getLocalShard(id) || null
-            );
+            console.log(`\n📡 [IPFS RECALL] Menarik Shards dari jaringan IPFS publik untuk Object ID: ${objectId}...`);
+            
+            // Mengambil shard dari IPFS Network
+            const availableShards: (Buffer | null)[] = [];
+            for (let i = 0; i < index.ipfsCids.length; i++) {
+                try {
+                    const cid = index.ipfsCids[i];
+                    console.log(`   -> Mendownload Shard ${i+1} dari IPFS (CID: ${cid})...`);
+                    const shardBuffer = await fetchFromIPFS(cid);
+                    availableShards.push(shardBuffer);
+                } catch (err) {
+                    console.warn(`   ⚠️ Shard ${i+1} gagal didownload atau hilang di jaringan.`);
+                    availableShards.push(null); // Parity XOR akan merekonstruksi pecahan yang null
+                }
+            }
             
             const recoveredBuffer = this.holographicSystem.reconstructAndDecrypt(
                 availableShards,
@@ -151,7 +172,7 @@ export class Hippocampus {
                 index.metadata
             );
             
-            console.log(`🧩 [REASSEMBLY SUCCESS] Memori lama berhasil dipulihkan dari pecahan P2P!`);
+            console.log(`🧩 [REASSEMBLY SUCCESS] Memori lama berhasil direkonstruksi dari jaringan IPFS Publik!`);
             return JSON.parse(recoveredBuffer.toString('utf-8'));
         } catch (e) {
             console.error(`[Hippocampus] Gagal merekonstruksi hologram ${objectId}:`, e);
