@@ -148,6 +148,40 @@ async function startServer() {
     }
   });
 
+  // Web API: Kademlia DHT Store (RFC-compliant Key-Value distribution)
+  app.post('/api/dht/store', (req, res) => {
+    const { key, value, ttlMs } = req.body;
+    if (!key || !value) {
+      return res.status(400).json({ success: false, error: 'Key and value required' });
+    }
+    localNode.dht.storeLocal(key, value, localNode.identity.cellId, ttlMs);
+    res.json({ success: true, key, storedAt: Date.now() });
+  });
+
+  // Web API: Kademlia DHT Lookup
+  app.get('/api/dht/lookup', (req, res) => {
+    const key = req.query.key as string;
+    if (!key) return res.status(400).json({ success: false, error: 'Query parameter "key" required' });
+    const record = localNode.dht.getLocal(key);
+    if (record) {
+      return res.json({ success: true, found: true, record });
+    }
+    const targetHash = crypto.createHash('sha256').update(key).digest('hex');
+    const closest = localNode.dht.getClosestPeers(targetHash, 5);
+    res.json({ success: true, found: false, closestPeers: closest });
+  });
+
+  // Web API: Trigger Direct Cell Mitosis / Replication Capsule
+  app.post('/api/cell/replicate', async (req, res) => {
+    try {
+      const { observation } = req.body;
+      const result = await localNode.cognition['replicator'].replicateToPeers(observation);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Web API: SSE for Real-time Logs
   app.get('/api/stream', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');

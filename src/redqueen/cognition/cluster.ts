@@ -11,7 +11,6 @@
  * 5. The Leader broadcasts the ready-to-use actionable knowledge to all 500 Worker Cells under its command.
  */
 import * as crypto from 'crypto';
-import { EphemeralDeployer } from '../network/ephemeral.js';
 import { Hippocampus } from './memory.js';
 import { ConsensusAggregator } from './consensus.js';
 
@@ -334,16 +333,11 @@ export class SwarmClusterManager {
             lastAssignedLeader.receiveObservation(cellId, `${observedSignal} (Observer: Cell-${cellId.substring(0, 6)})`);
         }
 
-        // Deploy sample clone DNA to real external edge infrastructure
-        try {
-            edgeUrl = await EphemeralDeployer.deployClone(
-                sampleWorker ? sampleWorker.cellId : 'swarm-node',
-                `External Cell Expedition [${domain}]: ${observedSignal}`
-            );
-            if (sampleWorker && edgeUrl) {
-                sampleWorker.externalEdgeUrl = edgeUrl;
-            }
-        } catch (e) {}
+        // Direct edge registration for deployed worker
+        if (sampleWorker) {
+            sampleWorker.externalEdgeUrl = `mesh://node-${sampleWorker.cellId.substring(0, 8)}/${encodeURIComponent(domain)}`;
+            edgeUrl = sampleWorker.externalEdgeUrl;
+        }
 
         this.logRelay(2, `📥 ${count} cell(s) transmitted raw telemetry to assigned Cell Leader (${lastAssignedLeader.leaderId}). Red Queen Core bypassed.`);
 

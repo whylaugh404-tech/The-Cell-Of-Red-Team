@@ -2,7 +2,7 @@
  * [REAL IMPLEMENTATION] Cell Supervisor
  * Coordinates genuine OS network topology, Kademlia DHT routing table populated via
  * verified local/global interfaces, authentic process metabolism, cryptographic memory,
- * and signed creator governance.
+ * direct P2P cell replication, and signed creator governance.
  */
 import * as crypto from 'crypto';
 import * as os from 'os';
@@ -34,11 +34,8 @@ export class CellSupervisor {
         this.identity = new CellIdentity();
         this.metabolism = new MetabolicCore(this.lifecycle);
         this.transport = new TransportLayer(this.identity);
-        this.dht = new KademliaRouting(this.identity.cellId);
+        this.dht = new KademliaRouting(this.identity.cellId, this.transport);
         this.memory = new HolographicMemory();
-        this.cognition = new CognitiveMesh(this.identity.cellId);
-        // By default authorize this node's own persistent identity as creator/admin
-        this.governance = new GovernanceEngine([this.identity.publicKey]);
 
         // Assign Specialized Cyber Trait deterministically based on cryptographic CellId entropy
         const traits = Object.values(CyberTrait);
@@ -56,6 +53,11 @@ export class CellSupervisor {
             },
             mutationRecord: ['GENESIS_BOOT']
         };
+
+        // Wire genuine direct replicator and swarm mesh
+        this.cognition = new CognitiveMesh(this.identity, this.genome, this.transport);
+        // By default authorize this node's own persistent identity as creator/admin
+        this.governance = new GovernanceEngine([this.identity.publicKey]);
     }
 
     public async boot() {

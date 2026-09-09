@@ -2,9 +2,12 @@ import * as crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { Hippocampus } from './memory.js';
 import { AutonomousForager } from './foraging.js';
-import { EphemeralReplicator } from '../network/replication.js';
+import { DirectCellReplicator } from '../network/replication.js';
 import { ConsensusAggregator } from './consensus.js';
 import { SwarmClusterManager } from './cluster.js';
+import { CellIdentity } from '../network/identity.js';
+import { CellGenome, CyberTrait } from '../replication/genome.js';
+import { TransportLayer } from '../network/transport.js';
 
 export interface CognitiveSignal {
     signalId: string;
@@ -24,15 +27,24 @@ export class CognitiveMesh {
     private ai: GoogleGenAI | null = null;
     private memory: Hippocampus;
     private forager: AutonomousForager;
-    private replicator: EphemeralReplicator;
+    private replicator: DirectCellReplicator;
     private consensus: ConsensusAggregator;
     public swarmClusters: SwarmClusterManager;
 
-    constructor(selfId: string) {
-        this.selfId = selfId;
+    constructor(identity: CellIdentity, genome?: CellGenome, transport?: TransportLayer) {
+        this.selfId = identity.cellId;
         this.localVectorClock[this.selfId] = 0;
         this.memory = new Hippocampus();
-        this.replicator = new EphemeralReplicator(this.memory);
+        
+        const resolvedGenome: CellGenome = genome || {
+            generation: 0,
+            parentId: null,
+            specializedTrait: CyberTrait.ARCHIVAL,
+            traits: { metabolismRate: 1.0, maxConnections: 20, memoryAllocation: 256 },
+            mutationRecord: ['INIT']
+        };
+
+        this.replicator = new DirectCellReplicator(identity, resolvedGenome, this.memory, transport);
         this.forager = new AutonomousForager(this.memory, this.replicator);
         this.consensus = new ConsensusAggregator(this.memory);
         this.swarmClusters = new SwarmClusterManager(this.memory, this.consensus);

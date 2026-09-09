@@ -1,14 +1,29 @@
 /**
  * [REAL NETWORK PROTOCOL & TRANSPORT]
  * Length-prefixed framing, active peer socket connection tracking,
- * and authenticated message exchange.
+ * full RPC message multiplexing (PING, PONG, FIND_NODE, STORE, FIND_VALUE, REPLICATE_STATE),
+ * and direct socket communication.
  */
 import * as net from 'net';
 import { CellIdentity } from './identity';
 
+export type WireMessageType =
+    | 'HELLO'
+    | 'PING'
+    | 'PONG'
+    | 'FIND_NODE'
+    | 'NODES_FOUND'
+    | 'STORE'
+    | 'STORED'
+    | 'FIND_VALUE'
+    | 'VALUE_FOUND'
+    | 'REPLICATE_STATE'
+    | 'ACK'
+    | 'ERROR';
+
 export interface WireMessage {
     version: number;
-    type: 'HELLO' | 'PING' | 'PONG' | 'FIND_NODE' | 'GET_STATUS' | 'ACK' | 'ERROR';
+    type: WireMessageType;
     messageId: string;
     senderId: string;
     timestamp: number;
@@ -22,6 +37,7 @@ export class TransportLayer {
     private identity: CellIdentity;
     private activeConnections: Map<string, net.Socket> = new Map();
     private messageHandlers: ((msg: WireMessage, socket: net.Socket) => void)[] = [];
+    private pendingRpcCallbacks: Map<string, (response: WireMessage) => void> = new Map();
 
     constructor(identity: CellIdentity) {
         this.identity = identity;
@@ -55,6 +71,10 @@ export class TransportLayer {
         return result;
     }
 
+    public getSocketById(connId: string): net.Socket | undefined {
+        return this.activeConnections.get(connId);
+    }
+
     public onMessage(handler: (msg: WireMessage, socket: net.Socket) => void) {
         this.messageHandlers.push(handler);
     }
@@ -76,10 +96,10 @@ export class TransportLayer {
         socket.on('data', (data) => {
             buffer = Buffer.concat([buffer, data]);
             
-            // Length-prefixed framing (4 bytes length)
+            // Length-prefixed framing (4 bytes length header)
             while (buffer.length >= 4) {
                 const msgLength = buffer.readUInt32BE(0);
-                if (msgLength > 1024 * 1024 * 5) { // 5MB limit
+                if (msgLength > 1024 * 1024 * 10) { // 10MB safety cap
                     socket.destroy();
                     break;
                 }
@@ -99,7 +119,7 @@ export class TransportLayer {
         try {
             const raw = payload.toString('utf-8');
             if (raw.startsWith('GET ') || raw.startsWith('POST ')) {
-                // Intercept HTTP scanner
+                // Intercept HTTP probes gracefully
                 socket.write('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nOK');
                 return;
             }
@@ -107,7 +127,14 @@ export class TransportLayer {
             const parsed: WireMessage = JSON.parse(raw);
             if (!parsed.type || !parsed.senderId) return;
 
-            // Handle standard PING -> respond with signed PONG
+            // Check if this is an answer to a pending RPC call
+            if (parsed.messageId && this.pendingRpcCallbacks.has(parsed.messageId)) {
+                const cb = this.pendingRpcCallbacks.get(parsed.messageId);
+                this.pendingRpcCallbacks.delete(parsed.messageId);
+                if (cb) cb(parsed);
+            }
+
+            // Built-in PING response
             if (parsed.type === 'PING') {
                 this.sendMessage(socket, {
                     version: 1,
@@ -119,6 +146,7 @@ export class TransportLayer {
                 });
             }
 
+            // Dispatch to registered observers
             for (const h of this.messageHandlers) {
                 h(parsed, socket);
             }
@@ -132,6 +160,43 @@ export class TransportLayer {
         const header = Buffer.alloc(4);
         header.writeUInt32BE(payloadBuf.length, 0);
         socket.write(Buffer.concat([header, payloadBuf]));
+    }
+
+    /**
+     * Connects to a remote peer via TCP socket and registers it in active connections
+     */
+    public connectToPeer(host: string, port: number): Promise<net.Socket> {
+        return new Promise((resolve, reject) => {
+            const socket = net.createConnection({ host, port }, () => {
+                const connId = `${socket.remoteAddress || host}:${socket.remotePort || port}`;
+                this.activeConnections.set(connId, socket);
+                this.handleConnection(socket);
+                resolve(socket);
+            });
+
+            socket.once('error', (err) => {
+                reject(err);
+            });
+        });
+    }
+
+    /**
+     * Sends an RPC request to a socket and awaits a matching response messageId
+     */
+    public sendRpc(socket: net.Socket, msg: WireMessage, timeoutMs: number = 5000): Promise<WireMessage> {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.pendingRpcCallbacks.delete(msg.messageId);
+                reject(new Error(`RPC timeout (${timeoutMs}ms) for ${msg.type} [${msg.messageId}]`));
+            }, timeoutMs);
+
+            this.pendingRpcCallbacks.set(msg.messageId, (response) => {
+                clearTimeout(timer);
+                resolve(response);
+            });
+
+            this.sendMessage(socket, msg);
+        });
     }
 
     public close() {
