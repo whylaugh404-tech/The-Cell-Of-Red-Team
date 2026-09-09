@@ -53,8 +53,8 @@ export class CognitiveMesh {
         const clusterStatus = this.swarmClusters.getClusterStatus();
         return await this.consensus.manifestRedQueen(query, {
             cellId: this.selfId,
-            totalWorkers: clusterStatus.totalActiveWorkers,
-            totalLeaders: clusterStatus.totalActiveLeaders,
+            totalWorkers: clusterStatus.totalWorkers,
+            totalLeaders: clusterStatus.totalLeaders,
             clusters: clusterStatus.clusters,
             ...awarenessOverride
         });
