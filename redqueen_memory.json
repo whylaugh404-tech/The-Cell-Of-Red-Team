@@ -3,7 +3,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "[Swarm Leader Brief] CLUSTER-01: Master Directive: Retain architectural patterns from Autonomous Network OSINT & Kademlia. Apply parity sharding to preserve memory durability."
+        "text": "[Intel Eksternal Sel CELL-TER | CLUSTER-01]: \"Detected AS64500 announcing unauthorized /24 prefix overlapping tier-1 upstream transit, invalid ROA certificate timestamp.\" -> [Arahan Red Queen]: \"**Master Directive:** Identifikasi segera prefiks /24 spesifik yang diumumkan oleh AS64500. Implementasikan pemfilteran prefiks BGP untuk menolak semua pengumuman dari AS64500 untuk prefiks /24 yang tidak sah ini, dengan memanfaatkan status RPKI 'INVALID' dan informasikan temuan ini kepada *peer* BGP terkait untuk tindakan terkoordinasi.\""
       }
     ]
   },
@@ -11,7 +11,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "[Swarm Leader Brief] CLUSTER-02: Master Directive: Retain architectural patterns from Distributed Mesh & Erasure Parity. Apply parity sharding to preserve memory durability."
+        "text": "[Laporan Observasi CLUSTER-01 (LEADER-6674ED14A65EA475)]: [Cluster CLUSTER-01 | Leader LEADER-6674ED14A65EA475] Synthesized 2 observations across 2 worker cells. Primary vector: External Feed Intercepted: \"AlphaGenome Atlas predictive map of every DNA letter change in the human genome\" [URL: https://deepmind.google/blog/alphagenome-atlas-a-predictive-map-of-every-possible-dna-letter-change-in-the-human-genome/] (Observer: Cell-7752b6) | External Feed Intercepted: \"AlphaGenome Atlas predictive map of every DNA letter change in the human genome\" [URL: https://deepmind.google/blog/alphagenome-atlas-a-predictive-map-of-every-possible-dna-letter-change-in-the-human-genome/] (Observer: Cell-7d6868) -> [Arahan Red Queen]: Master Directive:\nSegera analisis AlphaGenome Atlas sebagai bukti kapabilitas pemodelan prediktif tingkat lanjut, mengukur potensi dampaknya terhadap pemetaan perilaku jaringan P2P dan eksploitasi paritas enkripsi. Prioritaskan penguatan anonimitas routing dan validasi ketahanan enkripsi terhadap kapabilitas pengenalan pola yang muncul ini."
       }
     ]
   }

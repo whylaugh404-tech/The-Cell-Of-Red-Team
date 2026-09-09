@@ -3,7 +3,7 @@
     "role": "model",
     "parts": [
       {
-        "text": "[Swarm Leader Brief] CLUSTER-01: Master Directive: Retain architectural patterns from Autonomous Network OSINT & Kademlia. Apply parity sharding to preserve memory durability."
+        "text": "[Intel Eksternal Sel CELL-TER | CLUSTER-01]: \"Detected AS64500 announcing unauthorized /24 prefix overlapping tier-1 upstream transit, invalid ROA certificate timestamp.\" -> [Arahan Red Queen]: \"**Master Directive:** Identifikasi segera prefiks /24 spesifik yang diumumkan oleh AS64500. Implementasikan pemfilteran prefiks BGP untuk menolak semua pengumuman dari AS64500 untuk prefiks /24 yang tidak sah ini, dengan memanfaatkan status RPKI 'INVALID' dan informasikan temuan ini kepada *peer* BGP terkait untuk tindakan terkoordinasi.\""
       }
     ]
   }

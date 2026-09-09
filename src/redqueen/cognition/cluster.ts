@@ -13,7 +13,7 @@
 import * as crypto from 'crypto';
 import { EphemeralDeployer } from '../network/ephemeral.js';
 import { Hippocampus } from './memory.js';
-import { GoogleGenAI } from '@google/genai';
+import { ConsensusAggregator } from './consensus.js';
 
 export interface WorkerCell {
     cellId: string;
@@ -167,14 +167,12 @@ export class SwarmClusterManager {
     public static readonly CELLS_PER_LEADER = 500;
     private clusters: Map<string, CellLeader> = new Map();
     private hippocampus: Hippocampus;
-    private ai: GoogleGenAI | null = null;
+    private consensus: ConsensusAggregator;
     private relayLog: Array<{ timestamp: number; message: string; step: number }> = [];
 
-    constructor(hippocampus: Hippocampus) {
+    constructor(hippocampus: Hippocampus, consensus?: ConsensusAggregator) {
         this.hippocampus = hippocampus;
-        if (process.env.GEMINI_API_KEY) {
-            this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        }
+        this.consensus = consensus || new ConsensusAggregator(hippocampus);
         // Initialize Cluster-1 with Genesis Leader
         this.getOrCreateAvailableCluster();
     }
@@ -198,6 +196,84 @@ export class SwarmClusterManager {
         this.clusters.set(clusterId, newLeader);
         console.log(`👑 [SWARM RESTRUCTURING] New Cluster Formed: ${clusterId}. Elected Leader: ${newLeader.leaderId} (Capacity: 5000 units).`);
         return newLeader;
+    }
+
+    /**
+     * Memproses data nyata yang dikirim dari luar oleh Red Queen Cell (misal dari Termux / Node eksternal / cURL).
+     * Sel eksternal diterima, diarahkan ke Cell Leader, disaring noisenta, dan diproses oleh Red Queen AI.
+     */
+    public async ingestExternalReport(report: {
+        cellId: string;
+        clusterId?: string;
+        observation: string;
+        domain?: string;
+        source?: string;
+    }): Promise<{
+        success: boolean;
+        cellId: string;
+        clusterId: string;
+        leaderId: string;
+        directive: string;
+        reductionRatio: number;
+        status: string;
+    }> {
+        const domain = report.domain?.trim() || 'External Network OSINT';
+        let leader: CellLeader | undefined;
+
+        if (report.clusterId && this.clusters.has(report.clusterId)) {
+            leader = this.clusters.get(report.clusterId);
+        }
+        if (!leader) {
+            leader = this.getOrCreateAvailableCluster();
+        }
+
+        // Daftarkan sel eksternal jika belum ada
+        if (!leader.workers.has(report.cellId)) {
+            leader.registerWorker({
+                cellId: report.cellId,
+                clusterId: leader.clusterId,
+                status: 'DEPLOYED_EXTERNAL',
+                dispatchedAt: Date.now(),
+                externalEdgeUrl: report.source || 'Remote Client',
+                lastObservation: report.observation,
+                learningDomain: domain
+            });
+        }
+
+        this.logRelay(2, `📥 [EXTERNAL TELEMETRY] Menerima data dari Sel Luar (${report.cellId.substring(0, 8)}). Meneruskan ke Leader ${leader.leaderId}.`);
+
+        // Step 2: Leader menerima laporan observasi
+        leader.receiveObservation(report.cellId, `[Sumber: ${report.source || 'Remote'}] ${report.observation}`);
+
+        // Step 3: Leader mensintesis buffer observasi
+        const { digestId, summary, reductionRatio } = leader.synthesizeForRedQueen();
+        this.logRelay(3, `🛡️ Leader ${leader.leaderId} menyaring noise (${reductionRatio}% reduksi) dari observasi luar.`);
+
+        // Step 4: Red Queen AI memproses observasi nyata ini
+        const directive = await this.consensus.synthesizeDirective(
+            leader.clusterId,
+            leader.leaderId,
+            summary,
+            domain
+        );
+
+        // Simpan langsung ke memori jangka panjang Red Queen (Hippocampus)
+        this.hippocampus.addMemory('model', `[Intel Eksternal Sel ${report.cellId.substring(0, 8)} | ${leader.clusterId}]: "${report.observation}" -> [Arahan Red Queen]: "${directive}"`);
+        this.logRelay(4, `👑 Red Queen menganalisis laporan intel luar dan menetapkan arahan: "${directive.slice(0, 60)}..."`);
+
+        // Step 5: Leader menyiarkan arahan ke seluruh sel pekerja
+        leader.broadcastMasterDirectiveToWorkers(digestId, directive);
+        this.logRelay(5, `⚡ Leader ${leader.leaderId} menyiarkan arahan baru kepada seluruh sel di ${leader.clusterId}.`);
+
+        return {
+            success: true,
+            cellId: report.cellId,
+            clusterId: leader.clusterId,
+            leaderId: leader.leaderId,
+            directive,
+            reductionRatio,
+            status: 'PROCESSED_AND_ASSIMILATED'
+        };
     }
 
     /**
@@ -270,31 +346,16 @@ export class SwarmClusterManager {
         this.logRelay(3, `🛡️ Leader ${lastAssignedLeader.leaderId} filtered out noise (${reductionRatio}% reduction). Transmitting single concise brief to Red Queen Core.`);
 
         // Step 4: Red Queen processes the synthesized brief and produces Master Directive
-        let directive = `Master Directive: Retain architectural patterns from ${domain}. Apply parity sharding to preserve memory durability.`;
-        
-        if (this.ai) {
-            try {
-                const prompt = `System Override: You are The Red Queen Core.
-Your Swarm Leader (${lastAssignedLeader.leaderId}) from ${lastAssignedLeader.clusterId} has filtered and synthesized ${rawCount} incoming signals from its 500-cell cluster.
-Synthesized Brief: "${summary}"
-Domain Focus: "${domain}"
-
-Formulate exactly 1 sharp, actionable directive (1-2 sentences) for the Leader to distribute to its 500 cells so they immediately operate with this knowledge.`;
-
-                const resp = await this.ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: prompt
-                });
-                if (resp.text && resp.text.trim()) {
-                    directive = resp.text.trim();
-                }
-            } catch (err: any) {
-                console.warn(`[Cluster AI Synthesis] ${err.message}`);
-            }
-        }
+        this.logRelay(4, `👑 Red Queen evaluating synthesized brief from Leader ${lastAssignedLeader.leaderId} via Multi-Model Consensus...`);
+        const directive = await this.consensus.synthesizeDirective(
+            lastAssignedLeader.clusterId,
+            lastAssignedLeader.leaderId,
+            summary,
+            domain
+        );
 
         // Save only the synthesized high-level directive in Red Queen Hippocampus (Never flooded with raw data!)
-        this.hippocampus.addMemory('model', `[Swarm Leader Brief] ${lastAssignedLeader.clusterId}: ${directive}`);
+        this.hippocampus.addMemory('model', `[Laporan Observasi ${lastAssignedLeader.clusterId} (${lastAssignedLeader.leaderId})]: ${summary} -> [Arahan Red Queen]: ${directive}`);
         this.logRelay(4, `👑 Red Queen evaluated the synthesis and issued Actionable Directive to Leader ${lastAssignedLeader.leaderId}.`);
 
         // Step 5: Leader receives directive and broadcasts ready-to-use insights to all 500 cells

@@ -35,7 +35,7 @@ export class CognitiveMesh {
         this.replicator = new EphemeralReplicator(this.memory);
         this.forager = new AutonomousForager(this.memory, this.replicator);
         this.consensus = new ConsensusAggregator(this.memory);
-        this.swarmClusters = new SwarmClusterManager(this.memory);
+        this.swarmClusters = new SwarmClusterManager(this.memory, this.consensus);
 
         if (process.env.GEMINI_API_KEY) {
             this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -49,8 +49,15 @@ export class CognitiveMesh {
     /**
      * Memanggil wujud tertinggi jaringan (The Red Queen) untuk menjawab Sang Kreator.
      */
-    public async askRedQueen(query: string): Promise<string> {
-        return await this.consensus.manifestRedQueen(query);
+    public async askRedQueen(query: string, awarenessOverride?: any): Promise<string> {
+        const clusterStatus = this.swarmClusters.getClusterStatus();
+        return await this.consensus.manifestRedQueen(query, {
+            cellId: this.selfId,
+            totalWorkers: clusterStatus.totalActiveWorkers,
+            totalLeaders: clusterStatus.totalActiveLeaders,
+            clusters: clusterStatus.clusters,
+            ...awarenessOverride
+        });
     }
 
     public async processIncomingSignal(signal: CognitiveSignal): Promise<boolean> {

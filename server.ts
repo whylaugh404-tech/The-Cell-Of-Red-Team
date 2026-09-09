@@ -81,6 +81,44 @@ async function startServer() {
     }
   });
 
+  // Web API: Receive Real External Observation from Red Queen Cell (e.g. from Termux / Remote Agent)
+  app.post('/api/cell/report', async (req, res) => {
+    const { cellId, clusterId, observation, domain, source } = req.body;
+    if (!observation || typeof observation !== 'string') {
+      return res.status(400).json({ success: false, error: 'Field "observation" (string) is required' });
+    }
+
+    console.log(`\n======================================================`);
+    console.log(`📡 [EXTERNAL INGEST] Received observation from external cell: ${cellId || 'Unknown'}`);
+    console.log(`🔎 [PAYLOAD] "${observation}"`);
+    console.log(`======================================================`);
+
+    try {
+      const result = await localNode.cognition.swarmClusters.ingestExternalReport({
+        cellId: cellId || ('EXT-' + crypto.randomBytes(6).toString('hex')),
+        clusterId,
+        observation,
+        domain: domain || 'External Recon / OSINT',
+        source: source || req.ip || 'Remote Edge'
+      });
+      res.json(result);
+    } catch (err: any) {
+      console.error(`[INGEST ERROR]`, err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Web API: Get All Assimilated Intel from Red Queen Memory
+  app.get('/api/cell/intel', (req, res) => {
+    try {
+      const formatted = localNode.cognition.swarmClusters['hippocampus'].getFormattedContext();
+      const raw = localNode.cognition.swarmClusters['hippocampus'].getContext();
+      res.json({ success: true, formatted, count: raw.length });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Web API: SSE for Real-time Logs
   app.get('/api/stream', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
