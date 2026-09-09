@@ -200,7 +200,9 @@ async function startServer() {
       
       if (input.toLowerCase().startsWith('/puter_result ')) {
           const result = input.substring(14).trim();
-          console.log(`\n👑 [THE RED QUEEN]:\n${result}\n`);
+          const firstLine = result.split('\n')[0] || '';
+          const preview = firstLine.substring(0, 120);
+          console.log(`\n👑 [THE RED QUEEN SYNAPSE]: ${preview}${result.length > 120 ? '...' : ''}\n`);
           return res.json({ success: true });
       }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Network, Activity, Database, Shield, Zap, Share2, Dna, Terminal as TerminalIcon, MessageSquare, Globe, ArrowRight, Send, Users, Cpu, Layers, Radio, CheckCircle2, RefreshCw, AlertCircle, Bot, User, Trash2, Sparkles } from 'lucide-react';
+import { Network, Activity, Database, Shield, Zap, Share2, Dna, Terminal as TerminalIcon, MessageSquare, Globe, ArrowRight, Send, Users, Cpu, Layers, Radio, CheckCircle2, RefreshCw, AlertCircle, Bot, User, Trash2, Sparkles, ChevronDown } from 'lucide-react';
+import { FormattedMessage } from './components/FormattedMessage';
 
 interface CellStatus {
   cellId: string;
@@ -107,6 +108,29 @@ export default function App() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const supervisorContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef<boolean>(false);
+  const [showScrollBottom, setShowScrollBottom] = useState<boolean>(false);
+
+  const handleChatScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 80;
+    userScrolledUpRef.current = isScrolledUp;
+    setShowScrollBottom(isScrolledUp);
+  };
+
+  const scrollToBottomChat = (smooth = true) => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+      userScrolledUpRef.current = false;
+      setShowScrollBottom(false);
+    }
+  };
 
   const fetchIntel = () => {
     fetch('/api/cell/intel')
@@ -191,14 +215,19 @@ export default function App() {
     return () => eventSource.close();
   }, []);
 
+  // Auto-scroll chat only when messages change, and ONLY if the user hasn't scrolled up to read
   useEffect(() => {
-    if (activeTab === 'supervisor') {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeTab === 'ask' && !userScrolledUpRef.current) {
+      scrollToBottomChat(true);
     }
-    if (activeTab === 'ask') {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages.length, activeTab]);
+
+  // Supervisor activity log auto-scrolls inside its own container without jarring the browser viewport
+  useEffect(() => {
+    if (activeTab === 'supervisor' && supervisorContainerRef.current) {
+      supervisorContainerRef.current.scrollTop = supervisorContainerRef.current.scrollHeight;
     }
-  }, [logs, chatMessages, activeTab]);
+  }, [logs.length, activeTab]);
 
   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,6 +246,11 @@ export default function App() {
     setIsAsking(true);
     setAskResponse(null);
     setFailoverNotice(null);
+    userScrolledUpRef.current = false;
+    setShowScrollBottom(false);
+    setTimeout(() => {
+      scrollToBottomChat(true);
+    }, 50);
 
     const win = window as any;
 
@@ -1262,7 +1296,11 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
               </div>
 
               {/* Messages Body */}
-              <div className="p-4 md:p-6 space-y-4 max-h-[460px] overflow-y-auto bg-black/30">
+              <div 
+                ref={chatContainerRef} 
+                onScroll={handleChatScroll} 
+                className="relative p-4 md:p-6 space-y-4 max-h-[460px] overflow-y-auto bg-black/30"
+              >
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
@@ -1290,13 +1328,17 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
                     </div>
 
                     <div
-                      className={`max-w-[92%] md:max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed whitespace-pre-wrap ${
+                      className={`max-w-[92%] md:max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
                         msg.role === 'user'
-                          ? 'bg-neutral-900 text-white shadow-xs rounded-tr-xs'
+                          ? 'bg-neutral-900 text-white shadow-xs rounded-tr-xs whitespace-pre-wrap'
                           : 'bg-black border border-red-900/40 text-white shadow-xs rounded-tl-xs'
                       }`}
                     >
-                      {msg.text}
+                      {msg.role === 'queen' ? (
+                        <FormattedMessage content={msg.text} />
+                      ) : (
+                        msg.text
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1317,6 +1359,19 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
                 )}
 
                 <div ref={chatBottomRef} />
+
+                {showScrollBottom && (
+                  <div className="sticky bottom-2 flex justify-center w-full z-20 pointer-events-none">
+                    <button
+                      type="button"
+                      onClick={() => scrollToBottomChat(true)}
+                      className="pointer-events-auto bg-neutral-900/95 hover:bg-neutral-800 text-white border border-red-900/60 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-mono flex items-center gap-1.5 backdrop-blur-xs transition-all cursor-pointer"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5 text-red-500 animate-bounce" />
+                      <span>Lihat Pesan Terbaru</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Quick Prompt Chips */}
@@ -1423,7 +1478,7 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
                 <span className="text-xs font-mono text-neutral-400">syslog / red-queen-core</span>
               </div>
               
-              <div className="h-[500px] overflow-y-auto p-6 font-mono text-sm leading-relaxed text-neutral-400 space-y-2">
+              <div ref={supervisorContainerRef} className="h-[500px] overflow-y-auto p-6 font-mono text-sm leading-relaxed text-neutral-400 space-y-2">
                 {logs.length === 0 && <span className="text-red-500">Waiting for telemetry data...</span>}
                 {logs.map((log, i) => (
                   <div key={i} className="whitespace-pre-wrap break-words border-l-2 border-neutral-800 pl-4 py-1 hover:bg-neutral-800/50 transition-colors">
