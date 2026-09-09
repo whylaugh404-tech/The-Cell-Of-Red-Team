@@ -287,22 +287,28 @@ export class SwarmClusterManager {
         let sampleWorker: WorkerCell | null = null;
         let edgeUrl: string | null = null;
 
-        this.logRelay(1, `🚀 Initiating dispatch of ${count} Red Queen cell(s) to external network. Domain: "${domain}".`);
+        this.logRelay(1, `🚀 Misi Dimulai: Mengirim ${count} Red Queen Cell ke luar jaringan.`);
+        this.logRelay(1, `🕳️ Membuka Secure Tunnel untuk Cell menuju domain: "${domain}"...`);
 
-        // Fetch genuine real-world technical intelligence (HackerNews API) for the foraging mission
+        // OSINT Gathering (Training AI with real world data via Wikipedia API)
         let observedSignal = `Explored external subnet on ${domain}. Analyzed real-time autonomous routing protocols and memory distribution.`;
         try {
-            const res = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
-            const ids = await res.json() as number[];
-            if (ids && ids.length > 0) {
-                const targetId = ids[Math.floor(Math.random() * Math.min(ids.length, 30))];
-                const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${targetId}.json`);
-                const item = await itemRes.json() as any;
-                if (item && item.title) {
-                    observedSignal = `External Feed Intercepted: "${item.title}" [URL: ${item.url || 'HN-Discussion'}]`;
-                }
+            // Pemetaan domain ke keyword pencarian nyata untuk AI Training
+            let query = 'Artificial_intelligence';
+            if (domain.toLowerCase().includes('bahasa pemrograman')) query = 'Programming_language';
+            else if (domain.toLowerCase().includes('hacking') || domain.toLowerCase().includes('cybersecurity')) query = 'Computer_security';
+            else if (domain.toLowerCase().includes('infrastruktur')) query = 'Cloud_computing';
+            else if (domain.toLowerCase().includes('osint')) query = 'Open-source_intelligence';
+
+            const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${query}`);
+            const data = await res.json() as any;
+            
+            if (data && data.extract) {
+                observedSignal = `[OSINT Intel - ${data.title}] ${data.extract.substring(0, 300)}...`;
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error('[Tunnel Error]', e);
+        }
 
         // 1. Dispatch cells and associate with leaders (500 max per leader)
         for (let i = 0; i < count; i++) {

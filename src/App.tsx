@@ -829,9 +829,9 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
                   <div className="flex flex-wrap gap-2 mb-3">
                     {[
                       'Distributed Architecture & OSINT',
-                      'Autonomous P2P Protocols & Kademlia',
-                      'Microkernel & Memory Erasure Systems',
-                      'Cyber Intelligence & Network Exploits',
+                      'Belajar Bahasa Pemrograman',
+                      'Ilmu Hacking & Cybersecurity',
+                      'Infrastruktur Teknologi Modern',
                       'Autonomous AI Agents & Biological Swarms'
                     ].map((domain, idx) => (
                       <button
