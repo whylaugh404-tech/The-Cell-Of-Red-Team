@@ -190,5 +190,13 @@
         "text": "Deterministic Test: Memory imprint for replication"
       }
     ]
+  },
+  {
+    "role": "user",
+    "parts": [
+      {
+        "text": "Deterministic Test: Memory imprint for replication"
+      }
+    ]
   }
 ]

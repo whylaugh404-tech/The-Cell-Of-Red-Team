@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Network, Activity, Database, Shield, Zap, Share2, Dna, Terminal as TerminalIcon, MessageSquare, Globe, ArrowRight, Send, Users, Cpu, Layers, Radio, CheckCircle2, RefreshCw, AlertCircle, Bot, User, Trash2, Sparkles, ChevronDown } from 'lucide-react';
+import { Network, Activity, Database, Shield, Zap, Share2, Dna, Terminal as TerminalIcon, MessageSquare, Globe, ArrowRight, Send, Users, Cpu, Layers, Radio, CheckCircle2, RefreshCw, AlertCircle, Bot, User, Trash2, Sparkles, ChevronDown, Lock } from 'lucide-react';
 import { FormattedMessage } from './components/FormattedMessage';
+import { ShardsVisualizer, ShardsData } from './components/ShardsVisualizer';
+import { OsintHub, OsintReport } from './components/OsintHub';
+import MetabolismVisualizer from './components/MetabolismVisualizer';
 
 interface CellStatus {
   cellId: string;
@@ -66,12 +69,21 @@ export const PUTER_MODELS = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'dispatch' | 'ask' | 'escape' | 'supervisor'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'dispatch' | 'osint' | 'ask' | 'escape' | 'supervisor' | 'phenotype'>('dashboard');
   
   const [status, setStatus] = useState<CellStatus | null>(null);
   const [clusterData, setClusterData] = useState<SwarmClusterData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+
+  // Real Shards (Cauchy MDS) & Direct Mitosis State
+  const [shardsData, setShardsData] = useState<ShardsData | null>(null);
+  const [isReplicating, setIsReplicating] = useState<boolean>(false);
+  const [replicationResult, setReplicationResult] = useState<any | null>(null);
+
+  // Real OSINT State
+  const [osintReports, setOsintReports] = useState<OsintReport[]>([]);
+  const [isInvestigating, setIsInvestigating] = useState<boolean>(false);
   
   // Swarm Dispatch State
   const [dispatchCount, setDispatchCount] = useState<number>(1);
@@ -155,6 +167,69 @@ export default function App() {
       .catch(() => {});
   };
 
+  const fetchShardsStatus = () => {
+    fetch('/api/shards/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setShardsData(data);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const fetchOsintReports = () => {
+    fetch('/api/osint/feed')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.reports) {
+          setOsintReports(data.reports);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const handleInvestigate = async (target: string): Promise<OsintReport | null> => {
+    setIsInvestigating(true);
+    try {
+      const res = await fetch('/api/osint/investigate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target })
+      });
+      const data = await res.json();
+      if (data.success && data.report) {
+        fetchOsintReports();
+        fetchShardsStatus();
+        fetchIntel();
+        return data.report;
+      }
+      throw new Error(data.error || 'Failed to investigate');
+    } finally {
+      setIsInvestigating(false);
+    }
+  };
+
+  const handleReplicate = async () => {
+    setIsReplicating(true);
+    setReplicationResult(null);
+    try {
+      const res = await fetch('/api/cell/replicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observation: 'P2P Mitosis requested from dashboard console' })
+      });
+      const data = await res.json();
+      setReplicationResult(data);
+      fetchStatus();
+      fetchShardsStatus();
+    } catch (err: any) {
+      setReplicationResult({ success: false, error: err.message });
+    } finally {
+      setIsReplicating(false);
+    }
+  };
+
   const handleSendExternalReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!externalObservation.trim()) return;
@@ -185,21 +260,25 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    const fetchStatus = () => {
-      fetch('/api/cell/status')
-        .then(res => res.json())
-        .then(data => { setStatus(data); setError(null); })
-        .catch(err => setError(err.message));
-    };
+  const fetchStatus = () => {
+    fetch('/api/cell/status')
+      .then(res => res.json())
+      .then(data => { setStatus(data); setError(null); })
+      .catch(err => setError(err.message));
+  };
 
+  useEffect(() => {
     fetchStatus();
     fetchClusterStatus();
     fetchIntel();
+    fetchShardsStatus();
+    fetchOsintReports();
     const interval = setInterval(() => {
       fetchStatus();
       fetchClusterStatus();
       fetchIntel();
+      fetchShardsStatus();
+      fetchOsintReports();
     }, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -483,6 +562,8 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
           <div className="flex overflow-x-auto w-full sm:w-auto">
             <TabButton id="dashboard" label="Dashboard" icon={Activity} />
             <TabButton id="dispatch" label="Swarm Expedition" icon={Send} />
+            <TabButton id="osint" label="OSINT & Recon" icon={Shield} />
+            <TabButton id="phenotype" label="Phenotype" icon={Cpu} />
             <TabButton id="ask" label="Ask" icon={MessageSquare} />
             <TabButton id="escape" label="Escape" icon={Globe} />
             <TabButton id="supervisor" label="Supervisor Log" icon={TerminalIcon} />
@@ -663,6 +744,17 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
                 </div>
               </div>
             )}
+
+            {/* Real Cauchy MDS Holographic Memory & Direct P2P Mitosis Capsule */}
+            <div className="mt-8">
+              <ShardsVisualizer
+                shardsData={shardsData}
+                onReplicate={handleReplicate}
+                isReplicating={isReplicating}
+                replicationResult={replicationResult}
+              />
+            </div>
+
           </div>
         )}
 
@@ -1205,6 +1297,15 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
           </div>
         )}
 
+        {/* --- VIEW: OSINT & NETWORK RECON HUB --- */}
+        {activeTab === 'osint' && (
+          <OsintHub
+            recentReports={osintReports}
+            onInvestigate={handleInvestigate}
+            isInvestigating={isInvestigating}
+          />
+        )}
+
         {/* --- VIEW: ASK --- */}
         {activeTab === 'ask' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto">
@@ -1455,6 +1556,13 @@ Pertanyaan/Instruksi Baru dari Creator: ${query}`;
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* --- VIEW: PHENOTYPE --- */}
+        {activeTab === 'phenotype' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <MetabolismVisualizer />
           </div>
         )}
 

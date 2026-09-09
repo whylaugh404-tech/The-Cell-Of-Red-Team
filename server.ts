@@ -182,6 +182,50 @@ async function startServer() {
     }
   });
 
+  // Web API: Real OSINT Investigation (DNS-over-HTTPS, Artifact Extraction & Cauchy MDS Storage)
+  app.post('/api/osint/investigate', async (req, res) => {
+    const { target } = req.body;
+    if (!target || typeof target !== 'string') {
+      return res.status(400).json({ success: false, error: 'Field "target" (string) is required' });
+    }
+    try {
+      console.log(`\n🔎 [OSINT INVESTIGATION] Initiated on target: "${target.trim()}"`);
+      const report = await localNode.cognition.getForager().investigateTarget(target.trim());
+      res.json({ success: true, report });
+    } catch (err: any) {
+      console.error('[OSINT ERROR]', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Web API: Get Recent OSINT Intelligence Feeds
+  app.get('/api/osint/feed', (req, res) => {
+    try {
+      const reports = localNode.cognition.getForager().getRecentReports();
+      res.json({ success: true, reports, count: reports.length });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Web API: Real Cauchy MDS Galois Field (GF256) Shard Status
+  app.get('/api/shards/status', (req, res) => {
+    try {
+      const objects = localNode.memory.getAllMetadata();
+      const localShardCount = localNode.memory.getLocalShardCount();
+      res.json({
+        success: true,
+        galoisField: 'GF(2^8) Primitive Polynomial 0x11D',
+        generator: 'Cauchy MDS Matrix (Maximum Distance Separable)',
+        localShardCount,
+        indexedObjectsCount: objects.length,
+        objects
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Web API: SSE for Real-time Logs
   app.get('/api/stream', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
@@ -271,6 +315,73 @@ async function startServer() {
           localNode.cognition.createSignal('REASONING', input);
       }
       return res.json({ success: true, message: 'Command registered.' });
+  });
+
+  // [PHASE 7] Web API: Metabolism Telemetry & Manipulation
+  app.get('/api/cell/metabolism', (req, res) => {
+    try {
+      const telemetry = localNode.metabolism.getTelemetry();
+      res.json({ success: true, telemetry });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/cell/metabolism', (req, res) => {
+    try {
+      const { rate } = req.body;
+      if (typeof rate !== 'number' || rate < 0.1 || rate > 5.0) {
+        return res.status(400).json({ success: false, error: 'Rate must be between 0.1 and 5.0' });
+      }
+      localNode.metabolism.setMetabolicRate(rate);
+      res.json({ success: true, rate });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // [PHASE 7] Web API: Phenotypic Plasticity & Adaptive Mutation
+  app.post('/api/cell/mutate', (req, res) => {
+    try {
+      const { targetTrait, reason } = req.body;
+      const pressure = reason || 'Creator manual directive';
+      const ReplicationController = require('./src/redqueen/replication/genome').ReplicationController;
+      const newGenome = ReplicationController.adaptPhenotype(localNode.genome, targetTrait, pressure);
+      
+      // Update the active genome
+      localNode.genome = newGenome;
+      // Re-initialize cognitive mesh with new genome limitations if necessary
+      
+      res.json({ success: true, genome: newGenome });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // [PHASE 7] Web API: Secure Apoptosis (Crypto-Shredding & Cellular Death)
+  app.post('/api/cell/apoptosis', (req, res) => {
+    try {
+      const { reason } = req.body;
+      localNode.metabolism.triggerApoptosis(reason || 'Creator invoked apoptosis');
+      const shredStats = localNode.memory.cryptoShred();
+      res.json({ success: true, status: 'TERMINATED', shredStats });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // [PHASE 7] Web API: Resurrection
+  app.post('/api/cell/resurrect', (req, res) => {
+    try {
+      const { reason } = req.body;
+      const success = localNode.metabolism.resurrect(reason || 'Creator invoked resurrection');
+      if (!success) {
+        return res.status(400).json({ success: false, error: 'Cell is not in a state that allows resurrection' });
+      }
+      res.json({ success: true, status: 'RECOVERING' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // Vite middleware for development

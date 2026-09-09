@@ -46,4 +46,77 @@ export class ReplicationController {
 
         return childGenome;
     }
+
+    /**
+     * [PHASE 7: PHENOTYPIC PLASTICITY & ADAPTIVE MUTATION]
+     * Mutates the current active cell genome in response to environmental
+     * pressure or creator directive. Updates trait limits and logs immutable audit.
+     */
+    public static adaptPhenotype(
+        currentGenome: CellGenome,
+        targetTrait?: CyberTrait,
+        pressureReason: string = 'Environmental adaptation pressure'
+    ): CellGenome {
+        const nextGen = currentGenome.generation + 1;
+        const availableTraits = Object.values(CyberTrait);
+        
+        let newTrait = targetTrait;
+        if (!newTrait || !availableTraits.includes(newTrait)) {
+            // Pick next trait cyclically or based on entropy
+            const currentIdx = availableTraits.indexOf(currentGenome.specializedTrait);
+            newTrait = availableTraits[(currentIdx + 1) % availableTraits.length];
+        }
+
+        // Calibrate trait parameters based on phenotype archetype
+        let metabolismRate = 1.0;
+        let maxConnections = 20;
+        let memoryAllocation = 512;
+
+        switch (newTrait) {
+            case CyberTrait.ROUTER:
+                maxConnections = 128;
+                metabolismRate = 1.5;
+                memoryAllocation = 384;
+                break;
+            case CyberTrait.ARCHIVAL:
+                memoryAllocation = 4096;
+                maxConnections = 30;
+                metabolismRate = 0.8;
+                break;
+            case CyberTrait.IMMUNE:
+                maxConnections = 15;
+                metabolismRate = 1.2;
+                memoryAllocation = 512;
+                break;
+            case CyberTrait.REGENERATIVE:
+                metabolismRate = 2.0;
+                maxConnections = 50;
+                memoryAllocation = 1024;
+                break;
+            case CyberTrait.EPHEMERAL:
+                metabolismRate = 2.5;
+                maxConnections = 64;
+                memoryAllocation = 256;
+                break;
+        }
+
+        const mutationDigest = crypto.createHash('sha256')
+            .update(`GEN_${nextGen}:${newTrait}:${Date.now()}:${pressureReason}`)
+            .digest('hex').substring(0, 12);
+
+        const newRecord = `GEN_${nextGen} [${newTrait}]: ${pressureReason} (hash:${mutationDigest})`;
+
+        return {
+            generation: nextGen,
+            parentId: currentGenome.parentId,
+            specializedTrait: newTrait,
+            traits: {
+                metabolismRate,
+                maxConnections,
+                memoryAllocation
+            },
+            mutationRecord: [...currentGenome.mutationRecord, newRecord]
+        };
+    }
 }
+

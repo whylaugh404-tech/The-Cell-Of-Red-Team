@@ -45,7 +45,7 @@ export class CognitiveMesh {
         };
 
         this.replicator = new DirectCellReplicator(identity, resolvedGenome, this.memory, transport);
-        this.forager = new AutonomousForager(this.memory, this.replicator);
+        this.forager = new AutonomousForager(this.memory, this.replicator, this.selfId);
         this.consensus = new ConsensusAggregator(this.memory);
         this.swarmClusters = new SwarmClusterManager(this.memory, this.consensus);
 
@@ -56,6 +56,10 @@ export class CognitiveMesh {
         } else {
             console.log('[Cognition] ⚠️ Gemini API key missing in .env!');
         }
+    }
+
+    public getForager(): AutonomousForager {
+        return this.forager;
     }
 
     /**

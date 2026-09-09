@@ -56,6 +56,7 @@ export class CellSupervisor {
 
         // Wire genuine direct replicator and swarm mesh
         this.cognition = new CognitiveMesh(this.identity, this.genome, this.transport);
+        this.cognition.getForager().setComponents(this.dht, this.memory);
         // By default authorize this node's own persistent identity as creator/admin
         this.governance = new GovernanceEngine([this.identity.publicKey]);
     }

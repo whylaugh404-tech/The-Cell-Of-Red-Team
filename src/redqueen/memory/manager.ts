@@ -333,7 +333,36 @@ export class HolographicMemory {
         return this.memoryIndex.size;
     }
 
+    public storeObject(keyName: string, data: Buffer, shardCount: number = 3, parityCount: number = 2): EncryptedShards {
+        const key = crypto.createHash('sha256').update(`key:${keyName}`).digest();
+        return this.encryptAndShard(data, key, shardCount, parityCount);
+    }
+
     public getMetadata(objectId: string): MemoryMetadata | undefined {
         return this.memoryIndex.get(objectId);
+    }
+
+    public getAllMetadata(): MemoryMetadata[] {
+        return Array.from(this.memoryIndex.values());
+    }
+
+    /**
+     * [SECURE APOPTOSIS ERASURE]
+     * Performs true zero-fill memory overwriting (crypto-shredding) on all
+     * stored cryptographic memory shards and clears the index.
+     */
+    public cryptoShred(): { shreddedShards: number; shreddedObjects: number } {
+        const shreddedShards = this.localShards.size;
+        const shreddedObjects = this.memoryIndex.size;
+
+        // Perform in-place cryptographic zero-fill
+        for (const [, buffer] of this.localShards.entries()) {
+            buffer.fill(0);
+        }
+        this.localShards.clear();
+        this.memoryIndex.clear();
+
+        console.log(`[CRYPTO-SHRED] Secured and shredded ${shreddedShards} shards and ${shreddedObjects} indexed objects.`);
+        return { shreddedShards, shreddedObjects };
     }
 }
